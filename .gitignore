@@ -1,0 +1,9 @@
+# gitignore for OF 5.x libraries
+
+#make file stuff
+lnInclude/
+**/Make/linux*
+
+# emacs stuff
+*~
+

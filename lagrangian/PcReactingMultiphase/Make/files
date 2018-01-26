@@ -1,0 +1,13 @@
+
+/* Cloud  base classes stuff */
+PcReactingMultiphaseCloud/baseClasses/pcReactingMultiphaseCloud.C
+
+/* Parcel Stuff */
+PcReactingMultiphaseParcel/basicPcReactingMultiphaseParcel/defineBasicPcReactingMultiphaseParcel.C
+PcReactingMultiphaseParcel/basicPcReactingMultiphaseParcel/makeBasicPcReactingMultiphaseParcelSubmodels.C
+
+/* Make coal cloud and parcel objects */
+PcCoalCombustion/coalParcel/makeCoalParcelSubmodels.C
+
+
+LIB = $(FOAM_USER_LIBBIN)/libPcReactingMultiphase
