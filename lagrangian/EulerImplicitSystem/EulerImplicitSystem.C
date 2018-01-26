@@ -276,25 +276,27 @@ void Foam::EulerImplicitSystem::invertJacobian
 
 void Foam::EulerImplicitSystem::explicitEuler
 (
-    scalar& Y_i,
-    scalar& N_i,
-    const scalar& dt
+    const scalar subdt,
+    const scalar Ysoot_current,
+    const scalar N_current,
+    scalar& Ysoot_1,
+    scalar& N_1
 )
 {
     // get the derivatives at this location
     scalarField derivative(this->nEqns());
-    this->derivatives(Y_i,N_i,derivative);
+    this->derivatives(Ysoot_current,N_current,derivative);
 
-    // Take explicit euler step
-    Y_i = Y_i + derivative[0]*dt;
-    N_i = N_i + derivative[1]*dt;
+    // Take explicit Euler step
+    Ysoot_1 = Ysoot_current + derivative[0]*subdt;
+    N_1 = N_current + derivative[1]*subdt;
 
 
     // Force them to be positive
-    if (Y_i <= 0. || N_i <= 0.)
+    if (Ysoot_1 <= 0. || N_1 <= 0.)
     {
-        Y_i = 0.0;
-        N_i = 0.0;
+        Ysoot_1 = 0.0;
+        N_1 = 0.0;
     }
                 
 }
@@ -532,16 +534,6 @@ bool Foam::EulerImplicitSystem::CheckFrozenSpecies
     // a significant mass fractions remains
     forAll(Y_final, specie)
     {
-        // if (Y_initial[specie] >= 1e-8 && Y_final[specie] < 1e-8)
-        // {
-        //     overConsumed = true;
-        // }
-
-        // else if (Y_initial[specie] < 1e-8 && Y_final[specie] <= 0)
-        // {
-        //     overConsumed = true;
-        // }
-
         if (Y_final[specie] < 0.0)
         {
             overConsumed = true;
@@ -593,55 +585,6 @@ Foam::scalar Foam::EulerImplicitSystem::GetSafeSubdt
 
     return safeSubdt;
 }
-
-void Foam::EulerImplicitSystem::correctMasses
-(
-    scalarField& Y_final,
-    scalar& Ysoot_final,
-    const label cellNumber,
-    const scalar cellVolume,
-    const scalar dt
-)
-{
-    // From the source terms determined previously we can calculate the 
-    // mass [kg] produced in this cell over the cfd time step dt
-    // Soot can be negative or positive
-    scalar massProducedSoot = speciesSources["SOOT"][cellNumber] *dt/cellVolume;
-    // Reactants, should be negative
-    scalar massProducedC2H2 = speciesSources["C2H2"][cellNumber] *dt/cellVolume;
-    scalar massProducedO2 = speciesSources["O2"][cellNumber] *dt/cellVolume;
-    scalar massProducedOH = speciesSources["OH"][cellNumber] *dt/cellVolume;
-    // Products, should be positive
-    scalar massProducedH2 = speciesSources["H2"][cellNumber] *dt/cellVolume;
-    scalar massProducedCO = speciesSources["CO"][cellNumber] *dt/cellVolume;
-    scalar massProducedH = speciesSources["H"][cellNumber] *dt/cellVolume;
-
-    // Should be zero at the end
-    scalar massBalance = massProducedSoot + massProducedC2H2 + massProducedO2 + 
-        massProducedOH + massProducedH2 + massProducedCO + massProducedH;
-
-    scalar indicatorSpeciesTotal = fabs(massProducedC2H2) + 2*fabs(massProducedO2) + 
-        fabs(massProducedOH);
-    
-    // check that it's not zero first
-    
-    // Determine the relative relevance of the three reactions
-    scalar r1Ratio = fabs(massProducedC2H2)/indicatorSpeciesTotal;
-    scalar r2Ratio = 2*fabs(massProducedO2)/indicatorSpeciesTotal;
-    scalar r3Ratio = fabs(massProducedOH)/indicatorSpeciesTotal;
-    
-
-    if (r1Ratio > r2Ratio && r1Ratio > r3Ratio)
-    {
-        // reaction 1 is the most relevant
-        // So adjust C2H2 and H2 mass to correct massBalance
-        // stoiciometrically convery C2H2 to H2
-        scalar newC2H2 = massProducedC2H2 - 0.928*massBalance;
-        scalar newH2 = massProducedH2 + 0.07184*massBalance;
-    }
- 
-}
-
 
 //****************** Public member functions ********************//
 
@@ -753,10 +696,9 @@ void Foam::EulerImplicitSystem::updateSources
         // NOTE: The transport equation source is of form d(Y*rho)/dt
         // so for the newton iterations we want Y*rho
         const scalar cellRho = this->rho[cellNumber];
-        // if (cellNumber == 17666)
-        // {
-        //     Info << "Inside density: " << cellRho << endl;
-        // }
+        
+        // Get the soot variables in this cell at the beginning of the
+        // time step
         const scalar Ysoot_0(this->Y_s[cellNumber] * cellRho);
         const scalar N_0(this->N_s[cellNumber] * this->rho[cellNumber]);
 
@@ -766,7 +708,7 @@ void Foam::EulerImplicitSystem::updateSources
         scalar N_current(N_0);
 
         // variables at end of next overall (i.e. cfd) time step
-        // preset to the intial values.
+        // initialized to the intial values.
         scalar Ysoot_1(Ysoot_0);
         scalar N_1(N_0);
 
@@ -784,14 +726,18 @@ void Foam::EulerImplicitSystem::updateSources
             passed = this->newtonMethodStep(subdt, Ysoot_current, N_current, 
             Ysoot_1, N_1, relTol);
             
-
-            // advance local cell copy of frozen species to be used
-            // in the next iteration for newton method constants.
-            // Only if the newton iteration on the soot worked!
-            if (passed)
+            // If the implicit method failed then take an explicit step instead
+            if (! passed)
             {
-                this->AdvanceFrozenSpecies(Y_current, Y_final, cellNumber, subdt, true);
+                this->explicitEuler(subdt, Ysoot_current, N_current,
+                Ysoot_1, N_1);
             }
+
+            // advance, explicitly, local cell copy of frozen species to be used
+            // in the next iteration for calculation of rate constants.
+            this->AdvanceFrozenSpecies(Y_current, Y_final, cellNumber, subdt, true);
+
+            
 
             // Update both the soot variables and the frozen species for
             // the next iteration

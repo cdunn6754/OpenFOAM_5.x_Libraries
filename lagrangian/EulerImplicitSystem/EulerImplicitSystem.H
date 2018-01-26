@@ -189,9 +189,11 @@ class EulerImplicitSystem
 
     void explicitEuler
     (
-        scalar& Y_i,
-        scalar& N_i,
-        const scalar& dt
+        const scalar subdt,
+        const scalar Ysoot_current,
+        const scalar N_current,
+        scalar& Ysoot_1,
+        scalar& N_1
     );
 
 
@@ -259,21 +261,6 @@ class EulerImplicitSystem
         const label cellNumber,
         const scalar subdt 
     );
-
-    // It is likely that the mass balance incorporating
-    // the implicitly determined soot mass change and the
-    // explicitly determined 'frozen' mass species will not
-    // be physical. Here we will correct the source terms
-    // to produce a net zero mass production.
-    void correctMasses
-    (
-        scalarField& Y_final,
-        scalar& Ysoot_final,
-        const label cellNumber,
-        const scalar cellVolume,
-        const scalar dt
-    );
-
 
 public: 
 
