@@ -65,40 +65,13 @@ class EulerImplicitSystem
     dimensionSet Y_source_dims; //[kg/(m^3 * s)]
     dimensionSet N_source_dims; // [1/(m^3 * s)]
 
-    // molecular weights [kg/kmol]
-    const scalar MW_soot; // Molecular weight of soot 
-    const scalar MW_c2h2;
-    const scalar MW_oh;
-    const scalar MW_o2;
-    // product species
-    const scalar MW_h2;
-    const scalar MW_co;
-    const scalar MW_h;
+    // table for relevant specie molecular weights [kg/kmol]
+    HashTable<scalar> MW_;
 
-    // Thermo fields
-    scalarField rho;
-    const scalarField& T;
-    // Reactant specie fields
-    const scalarField& Y_c2h2;
-    const scalarField& Y_oh;
-    const scalarField& Y_o2;
-    
-    // Soot fields
-    const scalarField& Y_s;
-    const scalarField& N_s;
-
-    // Soot source fields for two soot transport equations
-    scalarField Ysoot_source;
+    // Soot source fields for two soot transport equation number density
     scalarField N_source;
 
     // Sources for the other related species
-    scalarField C2H2_source;
-    scalarField O2_source;
-    scalarField OH_source;
-    // product species
-    scalarField H2_source;
-    scalarField CO_source;
-    scalarField H_source;
     HashTable<scalarField> speciesSources;
 
     // tracks number of cells in which 
@@ -109,19 +82,8 @@ class EulerImplicitSystem
     // Constants are determined from examination of 
     // soot equation source equations while
     // only considering Y_s and N_s to be varible.
-    // The are for the newton method.
-
-    // Particle surface area constant
-    scalar C_A;
-
-    // Constants for the equations form of 'C_equation_term'
-    scalar C_1_1;
-    scalar C_1_2;
-    scalar C_1_3;
-    scalar C_1_4;
-    
-    scalar C_2_1;
-    scalar C_2_2;
+    // Keys are of the form "equation#_term#"
+    HashTable<scalar> C_;
 
 
     // Set the constants for cellNumber cell 
@@ -129,7 +91,9 @@ class EulerImplicitSystem
     void setConstants(const label& cellNumber);
 
     // Set cell constants based on the global thermo fields (rho and T)
-    // but use provided cell mass fractions
+    // but use provided cell mass fractions.
+    // This is used in the inner iterations when the frozen species
+    // are updated but the other thermo fields are not.
     void setConstants
     (
         const label& cellNumber,
