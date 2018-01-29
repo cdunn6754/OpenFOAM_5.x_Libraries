@@ -39,6 +39,7 @@ Description
 #include "tmp.H"
 #include "HashTable.H"
 #include "List.H"
+#include "CellState.H"
 
 namespace Foam
 {
@@ -58,6 +59,8 @@ class EulerImplicitSystem
     const psiReactionThermo& thermo_;
     // Const ref to the composition
     const basicSpecieMixture& composition_;
+    // CellState object 
+    CellState cellState_;
     // make the proper dimension sets for the sources
     dimensionSet Y_source_dims; //[kg/(m^3 * s)]
     dimensionSet N_source_dims; // [1/(m^3 * s)]

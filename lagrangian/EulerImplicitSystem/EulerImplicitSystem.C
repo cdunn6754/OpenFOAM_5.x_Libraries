@@ -41,6 +41,7 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
     :
     thermo_(thermo),
     composition_(composition),
+    cellState_(thermo, composition, Ns),
     Y_source_dims(1,0,-1,0,0),// Source dimensions (already multipied by volume)
     N_source_dims(0,0,-1,0,0),// Source dimensions (already multipied by volume)
     MW_soot(composition.W(composition.species()["SOOT"])),
