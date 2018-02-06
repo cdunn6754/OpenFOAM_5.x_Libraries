@@ -717,8 +717,6 @@ void Foam::EulerImplicitSystem::updateSources
             // in the next iteration for calculation of rate constants.
             this->AdvanceFrozenSpecies(Y_current, Y_final, cellNumber, subdt, true);
 
-            
-
             // Update both the soot variables and the frozen species for
             // the next iteration
             Y_current = Y_final;
@@ -760,43 +758,6 @@ void Foam::EulerImplicitSystem::updateSources
         this->speciesSources["H"][cellNumber] = 
             (Y_final[5] - Y_initial[5])*cellVolume*cellRho/dt;
 
-
-        // if (cellNumber == 17307)
-        // {
-        //     Info<< "Fields:" << endl;
-        //     Info << "SOOT: " << Ysoot_1<< endl;
-        //     Info << "C2H2: " << Y_final[0]*cellDensity << endl;
-        //     Info << "O2: " << Y_final[1]*cellDensity << endl;
-        //     Info << "OH: " << Y_final[2]*cellDensity << endl;
-        //     Info << "H2: " << Y_final[3]*cellDensity << endl;
-        //     Info << "CO: " << Y_final[4]*cellDensity<< endl;
-        //     Info << "H: " << Y_final[5]*cellDensity << endl;
-            
-        //     Info << "Sources:" << endl;
-        //     Info << "Ysoot: " << speciesSources["SOOT"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "Yc2h2: " << speciesSources["C2H2"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "Yo2: " << speciesSources["O2"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "Yoh: " << speciesSources["OH"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "Yh2: " << speciesSources["H2"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "YCO: " << speciesSources["CO"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "Yh: " << speciesSources["H"][cellNumber] *dt/cellVolume 
-        //         << endl;
-        //     Info << "Sum of mass produced per volume: "
-        //         << (speciesSources["SOOT"][cellNumber] + 
-        //         speciesSources["C2H2"][cellNumber] + 
-        //         speciesSources["O2"][cellNumber] +
-        //         speciesSources["OH"][cellNumber] +
-        //         speciesSources["H2"][cellNumber] +
-        //         speciesSources["CO"][cellNumber] +
-        //         speciesSources["H"][cellNumber]) << endl;
-        // }
-
     }// end loop through cells
     
 }
@@ -808,4 +769,3 @@ Foam::scalar Foam::EulerImplicitSystem::get_newton_method_failures()
 {
     return this->newton_method_failures;
 }
-
