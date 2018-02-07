@@ -36,17 +36,18 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
 (
     const psiReactionThermo& thermo, 
     const basicSpecieMixture& composition,
-    const volScalarField& Ns
+    const volScalarField& Ns,
+    const fvMesh& mesh
 )
     :
     thermo_(thermo),
     composition_(composition),
-    cellState_(thermo, composition, Ns),
+    cellState_(thermo, composition, Ns, mesh),
     Y_source_dims(1,0,-1,0,0),// Source dimensions (already multipied by volume)
     N_source_dims(0,0,-1,0,0),// Source dimensions (already multipied by volume)
-    MW_(7),
+    MW_(9),
     N_source(Ns.size(),0.0),
-    speciesSources(7),
+    speciesSources(9),
     newton_method_failures(0),
     C_(7)
 {
@@ -60,6 +61,8 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
     speciesSources.insert("H2", scalarField(Ns.size(),0.0));
     speciesSources.insert("CO", scalarField(Ns.size(),0.0));
     speciesSources.insert("H", scalarField(Ns.size(),0.0));
+    speciesSources.insert("CO2", scalarField(Ns.size(),0.0));
+    speciesSources.insert("H2O", scalarField(Ns.size(),0.0));
 
     // set up MW table
     MW_.insert("SOOT", composition.W(composition.species()["SOOT"]));
@@ -69,6 +72,8 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
     MW_.insert("H2", composition.W(composition.species()["H2"]));
     MW_.insert("CO", composition.W(composition.species()["CO"]));
     MW_.insert("H", composition.W(composition.species()["H"]));
+    MW_.insert("CO2", composition.W(composition.species()["CO2"]));
+    MW_.insert("H2O", composition.W(composition.species()["H2O"]));
 
     // set up constants
     C_.insert("A", 0.0);
@@ -87,13 +92,6 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
 // Set the constants based on new time step species/rho/T
 void Foam::EulerImplicitSystem::setConstants(const label& cellNumber) 
 {
-    // Get quantities for particular cell
-    // const scalar& rho_ = this->rho[cellNumber];
-    // const scalar& T_ = T[cellNumber];
-    // const scalar& Y_c2h2_ = Y_c2h2[cellNumber];
-    // const scalar& Y_o2_ = Y_o2[cellNumber];
-    // const scalar& Y_oh_ = Y_oh[cellNumber];
-
     // Set these as the current field values.
     const scalar& Y_c2h2_ = this->cellState_.frozenSpecieMassFractions()["C2H2"];
     const scalar& Y_o2_ = this->cellState_.frozenSpecieMassFractions()["O2"];
@@ -152,11 +150,11 @@ void Foam::EulerImplicitSystem::derivatives
 )
 {
             
-    // Evolution of soot mass fraction y[0]
+    // Evolution of soot mass fraction
     derivative[0] = (C_["1_1"] + 
     (C_["1_2"] - C_["1_3"] - C_["1_4"]) * (Foam::pow(Y,(2./3.)) * Foam::pow(N,(1./3.))));
 
-    // Evolution of soot number density (particles/m^3)
+    // Evolution of soot number density (particles/kg)
     derivative[1] = (C_["2_1"] - 
     C_["2_2"] * (Foam::pow(Y,(1./6.)) * Foam::pow(N,(11./6.))));
 }
@@ -228,172 +226,150 @@ void Foam::EulerImplicitSystem::jacobian
 
 }
 
-void Foam::EulerImplicitSystem::invertJacobian
-(
-    const scalarSquareMatrix& J,
-    scalarSquareMatrix& invJ
-) const
-{
-    // get inverse of 2x2 jacobian with adjugate/determinant method
-    scalar detJ = J(0,0)*J(1,1) - J(0,1)*J(1,0);
+// void Foam::EulerImplicitSystem::invertJacobian
+// (
+//     const scalarSquareMatrix& J,
+//     scalarSquareMatrix& invJ
+// ) const
+// {
+//     // get inverse of 2x2 jacobian with adjugate/determinant method
+//     scalar detJ = J(0,0)*J(1,1) - J(0,1)*J(1,0);
 
-    if (fabs(detJ) < Foam::SMALL)
-    {
-        Info << "Small determinant: " << detJ << endl;
-        detJ = Foam::SMALL;
-    }
+//     if (fabs(detJ) < Foam::SMALL)
+//     {
+//         Info << "Small determinant: " << detJ << endl;
+//         detJ = Foam::SMALL;
+//     }
 
-    invJ(0,0) = J(1,1)/detJ;
-    invJ(0,1) = -J(0,1)/detJ;
-    invJ(1,0) = -J(1,0)/detJ;
-    invJ(1,1) = J(0,0)/detJ;
+//     invJ(0,0) = J(1,1)/detJ;
+//     invJ(0,1) = -J(0,1)/detJ;
+//     invJ(1,0) = -J(1,0)/detJ;
+//     invJ(1,1) = J(0,0)/detJ;
             
-}
+// }
 
-void Foam::EulerImplicitSystem::explicitEuler
-(
-    const scalar subdt,
-    const scalar Ysoot_current,
-    const scalar N_current,
-    scalar& Ysoot_1,
-    scalar& N_1
-)
-{
-    // get the derivatives at this location
-    scalarField derivative(this->nEqns());
-    this->derivatives(Ysoot_current,N_current,derivative);
-
-    // Take explicit Euler step
-    Ysoot_1 = Ysoot_current + derivative[0]*subdt;
-    N_1 = N_current + derivative[1]*subdt;
-
-
-    // Force them to be positive
-    if (Ysoot_1 <= 0. || N_1 <= 0.)
-    {
-        Ysoot_1 = 0.0;
-        N_1 = 0.0;
-    }
-                
-}
-
-
-// Perform a newton method integration on a single cell
-// returns the value of the Y_s and N_s at time
-// + dt
-// in Y_1 and N_1
-bool Foam::EulerImplicitSystem::newtonMethodStep
-(
-    const scalar dt,
-    const scalar Y_0,
-    const scalar N_0,
-    scalar& Y_1,
-    scalar& N_1,
-    const scalar relTol
-)
-{
+// // Perform a newton method integration on a single cell
+// // returns the value of the Y_s and N_s at time
+// // + dt
+// // in Y_1 and N_1
+// bool Foam::EulerImplicitSystem::newtonMethodStep
+// (
+//     const scalar dt,
+//     const scalar Y_0,
+//     const scalar N_0,
+//     scalar& Y_1,
+//     scalar& N_1,
+//     const scalar relTol
+// )
+// {
              
-    // set intial values for this cell
-    scalar Y_i = Y_0;
-    scalar N_i = Y_0;
+//     // set intial values for this cell
+//     scalar Y_i = Y_0;
+//     scalar N_i = Y_0;
                 
-    // N.M. equations value storage
-    scalar fY(0.0);
-    scalar fN(0.0);
+//     // N.M. equations value storage
+//     scalar fY(0.0);
+//     scalar fN(0.0);
 
-    // Jacobian storage
-    scalarSquareMatrix J(this->nEqns());
-    scalarSquareMatrix invJ(this->nEqns());
+//     // Jacobian storage
+//     scalarSquareMatrix J(this->nEqns());
+//     scalarSquareMatrix invJ(this->nEqns());
 
-    // temporary variables for Newton's method iterations
-    scalar Y_next(0.0);
-    scalar N_next(0.0);
-    label converged(0);
+//     // temporary variables for Newton's method iterations
+//     scalar Y_next(0.0);
+//     scalar N_next(0.0);
+//     label converged(0);
 
-    label newton_iteration(0);
+//     label newton_iteration(0);
 
-    // Newton method iterations
-    while( !converged && (newton_iteration < 10)) 
-    {
-        // get jacobian and inverse
-        this->jacobian(Y_i, N_i, dt, J, invJ);
+//     // Newton method iterations
+//     while( !converged && (newton_iteration < 10)) 
+//     {
+//         // get jacobian and inverse
+//         this->jacobian(Y_i, N_i, dt, J, invJ);
                   
-        // newton method function values
-        this->newtonEquations(Y_i, N_i, Y_0, 
-        N_0, dt, fY, fN);
+//         // newton method function values
+//         this->newtonEquations(Y_i, N_i, Y_0, 
+//         N_0, dt, fY, fN);
 
-        // Newton method step
-        Y_next = Y_i - (invJ(0,0) * fY + invJ(0,1) * fN);
-        N_next = N_i - (invJ(1,0) * fY + invJ(1,1) * fN);
+//         // Newton method step
+//         Y_next = Y_i - (invJ(0,0) * fY + invJ(0,1) * fN);
+//         N_next = N_i - (invJ(1,0) * fY + invJ(1,1) * fN);
 
-        // Force them to be zero if one is negative
-        if (Y_next <= 0. || N_next <= 0.)
-        {
-            Y_next = 0.0;
-            N_next = 0.0;
-        }
-        // else check for convergence
-        else if 
-            (fabs(Y_next - Y_i)/fabs(Y_next + Foam::SMALL) < relTol 
-            && 
-            fabs(N_next - N_i)/fabs(N_next + Foam::SMALL) < relTol)
-        {
-            converged = 1;
-        }
+//         // Force them to be zero if one is negative
+//         if (Y_next <= 0. || N_next <= 0.)
+//         {
+//             Y_next = 0.0;
+//             N_next = 0.0;
+//         }
+//         // else check for convergence
+//         else if 
+//             (fabs(Y_next - Y_i)/fabs(Y_next + Foam::SMALL) < relTol 
+//             && 
+//             fabs(N_next - N_i)/fabs(N_next + Foam::SMALL) < relTol)
+//         {
+//             converged = 1;
+//         }
 
-        Y_i = Y_next;
-        N_i = N_next;
+//         Y_i = Y_next;
+//         N_i = N_next;
 
-        // increment the iteration counter
-        newton_iteration++;
-    }// end Newton method loop
+//         // increment the iteration counter
+//         newton_iteration++;
+//     }// end Newton method loop
 
-    // If we did not converge in 10 iterations
-    if (newton_iteration >= 10)
-    {
-        // increment failure counter
-        this->newton_method_failures ++;
+//     // If we did not converge in 10 iterations
+//     if (newton_iteration >= 10)
+//     {
+//         // increment failure counter
+//         this->newton_method_failures ++;
 
-        // if not converged set it as it was previously
-        // bad idea? 
-        Y_i = Y_0;
-        N_i = N_0;
+//         // if not converged set it as it was previously
+//         // bad idea? 
+//         Y_i = Y_0;
+//         N_i = N_0;
 
-        return false;
+//         return false;
 
-    }
+//     }
     
-    // set the references to the 
-    // correct values for return
-    Y_1 = Y_i;
-    N_1 = N_i;
+//     // set the references to the 
+//     // correct values for return
+//     Y_1 = Y_i;
+//     N_1 = N_i;
     
-    return true;
+//     return true;
 
-} // end newtonMethodStep function
+// } // end newtonMethodStep function
 
-void Foam::EulerImplicitSystem::RatesOfChange
+void Foam::EulerImplicitSystem::newRatesOfChange
 (
-    scalar& rate_3n,
-    scalar& rate_3g,
-    scalar& rate_4,
-    scalar& rate_5,
-    const label cellNumber
+    scalar& r_growth,
+    scalar& r_oxidation_O2,
+    scalar& r_oxidation_OH,
+    scalar& r_gasification_H2O,
+    scalar& r_gasification_CO2,
+    scalar& r_agglomeration
 )
 {
     // get relevant state variables for the cell
     const scalar& cell_rho = this->cellState_.thermoProperties()["rho"];
     const scalar& cell_T = this->cellState_.thermoProperties()["T"];
     const scalar& cell_c2h2 = this->cellState_.frozenSpecieMassFractions()["C2H2"];
-    const scalar& cell_o2 = this->cellState_.frozenSpecieMassFractions()["O2"];
-    const scalar& cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
     const scalar& cell_Ys = this->cellState_.Ysoot();
     const scalar& cell_Ns = this->cellState_.Nsoot();
-
+    // Partial pressures
+    const scalar& P_co2 = this->cellState_.frozenSpeciePPressures()["CO2"];
+    const scalar& P_o2 = this->cellState_.frozenSpeciePPressures()["O2"];
+    const scalar& P_h2o = this->cellState_.frozenSpeciePPressures()["H2O"];
+    const scalar& P_oh = this->cellState_.frozenSpeciePPressures()["OH"];
     // Specie concentrations
     const scalar C_c2h2(cell_rho * cell_c2h2 * (1/this->MW_["C2H2"]));
-    const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
-    const scalar C_o2(cell_rho * cell_o2 * (1/this->MW_["O2"]));
+    // Molar Mass of soot
+    const scalar M_s = this->MW_["SOOT"];
+    // current cell volume
+    const scalar V_ = this->cellState_.cellVolume();
+
     // Soot particle diameter and surface area for cell
     // (these are considered uniform in the cell)
     scalar cell_dp(0.0);
@@ -411,20 +387,145 @@ void Foam::EulerImplicitSystem::RatesOfChange
             cell_rho * cell_Ns;
     }
       
-    // Now actually find the rates
-    // First reaction rate constants, names taken from Kronenburg
-    const scalar k_3n = 0.63e4 * Foam::exp(-21000./cell_T);
-    const scalar k_3g = 0.75e3 * Foam::exp(-12100./cell_T);
-    const scalar k_4  = 7.15e2 * Foam::pow(cell_T,0.5) * 
-        Foam::exp(-19800./cell_T);
-    const scalar k_5 = 0.36 * Foam::pow(cell_T,0.5);
+    // Set constants from papers
+    // Kronenburg(2000)
+    scalar A_growth(7.5e2);
+    scalar T_growth(12100.0);
+    // Fletcher(2017)
+    scalar A_o2(7.98e-1);
+    scalar A_oh(1.89e-3);
+    scalar A_co2(3.06e-17);
+    scalar A_h2o(6.27e4);
+    scalar E_o2(1.77e5);
+    scalar E_co2(5.56e3);
+    scalar E_h20(2.95e5);
+    scalar n_(0.13);
+    scalar R_(8.314); //[J/(mol*K)]
 
-    // Form the reaction rates [kmol/(s*m^3)] (i think)
-    rate_3n = k_3n * C_c2h2;
-    rate_3g = k_3g * C_c2h2 * cell_As;
-    rate_4  = k_4  * C_o2 * cell_As;
-    rate_5 = k_5 * C_oh * cell_As;
-} //end RatesOfChange
+    // Now calculate the rates
+    // Soot Mass fraction [kmol/(m^3*s)]
+    r_growth = A_growth * Foam::exp(-T_growth/cell_T) * cell_As * C_c2h2;
+    r_oxidation_O2 = Foam::pow(cell_T, -0.5) * 
+        A_o2 * P_o2 * Foam::exp(-E_o2/(R_*cell_T)) *
+        (cell_As/(V_ * M_s));
+    r_oxidation_OH = Foam::pow(cell_T, -0.5) * A_oh * P_oh * (cell_As/(V_ * M_s));
+        
+    r_gasification_CO2 = A_co2 * Foam::pow(P_co2,0.5) * Foam::sqr(cell_T) *
+        Foam::exp(-E_co2/(R_*cell_T)) * (cell_As/(V_ * M_s));
+       
+    r_gasification_H2O = A_h2o * Foam::pow(P_h2o,n_) * Foam::pow(cell_T, -0.5) *
+        Foam::exp(-E_h20/(R_ * cell_T)) * (cell_As/(V_ * M_s));
+
+    r_agglomeration = 2 * this->Ca * Foam::sqrt(cell_dp) * 
+        Foam::sqrt((6.0 * this->sigma * cell_T)/(this->rho_s)) * 
+        Foam::sqr(cell_rho * cell_Ns);
+    
+    
+} //end newRatesOfChange
+
+
+// void Foam::EulerImplicitSystem::RatesOfChange
+// (
+//     scalar& rate_3n,
+//     scalar& rate_3g,
+//     scalar& rate_4,
+//     scalar& rate_5,
+//     const label cellNumber
+// )
+// {
+//     // get relevant state variables for the cell
+//     const scalar& cell_rho = this->cellState_.thermoProperties()["rho"];
+//     const scalar& cell_T = this->cellState_.thermoProperties()["T"];
+//     const scalar& cell_c2h2 = this->cellState_.frozenSpecieMassFractions()["C2H2"];
+//     const scalar& cell_o2 = this->cellState_.frozenSpecieMassFractions()["O2"];
+//     const scalar& cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
+//     const scalar& cell_Ys = this->cellState_.Ysoot();
+//     const scalar& cell_Ns = this->cellState_.Nsoot();
+
+//     // Specie concentrations
+//     const scalar C_c2h2(cell_rho * cell_c2h2 * (1/this->MW_["C2H2"]));
+//     const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
+//     const scalar C_o2(cell_rho * cell_o2 * (1/this->MW_["O2"]));
+//     // Soot particle diameter and surface area for cell
+//     // (these are considered uniform in the cell)
+//     scalar cell_dp(0.0);
+//     scalar cell_As(0.0);
+//     if (cell_Ns > Foam::SMALL)
+//     {
+//         cell_dp = 
+//             Foam::pow
+//             (
+//                 (6.*cell_Ys)/(this->pi * this->rho_s * cell_Ns),
+//                 (1./3.)
+//             );
+
+//         cell_As = this->pi * Foam::sqr(cell_dp) *
+//             cell_rho * cell_Ns;
+//     }
+      
+//     // Now actually find the rate constants
+//     // First reaction rate constants, names taken from Kronenburg
+//     const scalar k_3n = 0.63e4 * Foam::exp(-21000./cell_T);
+//     const scalar k_3g = 0.75e3 * Foam::exp(-12100./cell_T);
+//     const scalar k_4  = 7.15e2 * Foam::pow(cell_T,0.5) * 
+//         Foam::exp(-19800./cell_T);
+//     const scalar k_5 = 0.36 * Foam::pow(cell_T,0.5);
+
+//     // Form the reaction rates [kmol/(s*m^3)] (i think)
+//     rate_3n = k_3n * C_c2h2;
+//     rate_3g = k_3g * C_c2h2 * cell_As;
+//     rate_4  = k_4  * C_o2 * cell_As;
+//     rate_5 = k_5 * C_oh * cell_As;
+// } //end RatesOfChange
+
+void Foam::EulerImplicitSystem::explicitEuler
+(
+    const scalar subdt,
+    const scalar Ysoot_current,
+    const scalar N_current,
+    scalar& Ysoot_1,
+    scalar& N_1
+)
+{
+    // TODO: this is a crappy way to do it, we have to call RatesOfChange
+    // for both this and the frozen species, the two functions should be 
+    // combined in the future probably. Or we could make the rates a
+    // member variable maybe.
+
+    // rates for soot mass fraction reactions [kmol/(m^3 * s)]
+    scalar r_growth(0.0); // growth of soot particle from c2h2 not nucleation
+    scalar r_oxidation_O2(0.0);
+    scalar r_oxidation_OH(0.0);
+    scalar r_gasification_H2O(0.0);    
+    scalar r_gasification_CO2(0.0);
+    // rate for soot particle number density reaction[1/(m^3 * s)] (not used here)
+    scalar r_agglomeration(0.0);
+    // calculate the rates
+    this->newRatesOfChange(r_growth, r_oxidation_O2,r_oxidation_OH, 
+    r_gasification_H2O, r_gasification_CO2, r_agglomeration);
+
+    // total rate of soot consumption
+    scalar r_soot_consumption = r_oxidation_O2 + r_oxidation_OH + r_gasification_CO2
+        + r_gasification_H2O;
+
+    // Take explicit Euler step
+    Ysoot_1 = Ysoot_current + this->MW_["SOOT"] *
+        (2*r_growth  - r_soot_consumption) * subdt;
+    
+    // Need to divide by rho because this rate is for d(N*rho)/dt
+    // and we only want to evolve N
+    scalar cell_rho = this->cellState_.thermoProperties()["rho"];
+    N_1 = N_current - (1.0/cell_rho) * r_agglomeration * subdt;
+
+
+    // Force them to be positive
+    if (Ysoot_1 <= 0. || N_1 <= 0.)
+    {
+        Ysoot_1 = 0.0;
+        N_1 = 0.0;
+    }
+                
+}
 
 void Foam::EulerImplicitSystem::AdvanceFrozenSpecies
 (
@@ -442,20 +543,35 @@ void Foam::EulerImplicitSystem::AdvanceFrozenSpecies
     const scalar massC2H2(Y_initial[0]*cell_rho);
     const scalar massO2(Y_initial[1]*cell_rho);
     const scalar massOH(Y_initial[2]*cell_rho);
-
-    // get the rates in this cell [kmol/(s*m^3)]
-    scalar rate_3n(0.0);
-    scalar rate_3g(0.0);
-    scalar rate_4(0.0);
-    scalar rate_5(0.0);
-    this->RatesOfChange(rate_3n, rate_3g, rate_4,
-    rate_5,cellNumber); 
+    const scalar massCO2(Y_initial[6]*cell_rho);
+    const scalar massH2O(Y_initial[7]*cell_rho);
+    
+    // rates for soot mass fraction reactions [kmol/(m^3 * s)]
+    scalar r_growth(0.0); // growth of soot particle from c2h2 not nucleation
+    scalar r_oxidation_O2(0.0);
+    scalar r_oxidation_OH(0.0);
+    scalar r_gasification_H2O(0.0);    
+    scalar r_gasification_CO2(0.0);
+    // rate for soot particle number density reaction[1/(m^3 * s)] (not used here)
+    scalar r_agglomeration(0.0);
+    // calculate the rates
+    this->newRatesOfChange(r_growth, r_oxidation_O2,r_oxidation_OH, 
+    r_gasification_H2O, r_gasification_CO2, r_agglomeration);
+    
     
     // Explicit time step
     // Reactant species
-    scalar massC2H2Final = massC2H2 - this->MW_["C2H2"]*(rate_3n + rate_3g) * subdt;
-    scalar massO2Final = massO2 - 0.5*this->MW_["O2"]*rate_4*subdt;
-    scalar massOHFinal = massOH - this->MW_["OH"]*rate_5*subdt;
+    scalar massC2H2Final = massC2H2 - this->MW_["C2H2"]*r_growth* subdt;
+    scalar massO2Final = massO2 - this->MW_["O2"]*r_oxidation_O2*subdt;
+    scalar massOHFinal = massOH - this->MW_["OH"]*r_oxidation_OH*subdt;
+    scalar massCO2Final = massCO2 - this->MW_["CO2"]*r_gasification_CO2*subdt;
+    scalar massH2OFinal = massH2O - this->MW_["H2O"]*r_gasification_H2O*subdt;
+
+    // Assume the overall cell density has not changed 
+    // convert back to mass fractions
+    Y_final[0]= massC2H2Final / cell_rho;
+    Y_final[1]= massO2Final / cell_rho;
+    Y_final[2]= massOHFinal / cell_rho;
 
     // Product species
     if (advanceProductSpecies)
@@ -465,100 +581,102 @@ void Foam::EulerImplicitSystem::AdvanceFrozenSpecies
         const scalar massCO(Y_initial[4]*cell_rho);
         const scalar massH(Y_initial[5]*cell_rho);
         
+        
         // Add the mass/volume from the current explict step
         // (it's always a source for theses species)
-        scalar massH2Final = massH2 + this->MW_["H2"]*(rate_3n + rate_3g)*subdt;
-        scalar massCOFinal = massCO + this->MW_["CO"]*(rate_4 + rate_5)*subdt;
-        scalar massHFinal = massH + this->MW_["H"]*(rate_5)*subdt;
+        scalar massH2Final = massH2 + this->MW_["H2"]*(r_growth + r_gasification_H2O)
+            *subdt;
+        scalar massCOFinal = massCO + this->MW_["CO"]*(r_oxidation_OH +
+            r_gasification_H2O + 2*r_gasification_CO2) *subdt;
+        scalar massHFinal = massH + this->MW_["H"]*(r_oxidation_OH)*subdt;
+        // CO2 is also a reactant in gasification
+        massCO2Final += this->MW_["CO2"]*(r_oxidation_O2)*subdt;
+        
 
         // Convert back to mass fraction
         Y_final[3] = massH2Final/cell_rho;
         Y_final[4] = massCOFinal/cell_rho;
         Y_final[5] = massHFinal/cell_rho;
+        Y_final[6] = massCO2Final/cell_rho;
+        Y_final[7] = massH2OFinal/cell_rho;
     }
-    
-    // Assume the overall cell density has not changed 
-    // convert back to mass fractions
-    Y_final[0]= massC2H2Final / cell_rho;
-    Y_final[1]= massO2Final / cell_rho;
-    Y_final[2]= massOHFinal / cell_rho;
 
 }// end AdvanceFrozenspecies
 
-bool Foam::EulerImplicitSystem::CheckFrozenSpecies
-(
-        const scalarField& Y_initial,
-        scalarField& Y_final,
-        const label cellNumber,
-        const scalar subdt
-)
-{
+// bool Foam::EulerImplicitSystem::CheckFrozenSpecies
+// (
+//         const scalarField& Y_initial,
+//         scalarField& Y_final,
+//         const label cellNumber,
+//         const scalar subdt
+// )
+// {
 
-    // Flag to indicate species are over-consumed
-    bool overConsumed = false;
+//     // Flag to indicate species are over-consumed
+//     bool overConsumed = false;
 
-    // Use an explicit step to determine the
-    // frozen specie mass fractions at the end of the time step
-    this->AdvanceFrozenSpecies(Y_initial, Y_final, cellNumber, subdt);
+//     // Use an explicit step to determine the
+//     // frozen specie mass fractions at the end of the time step
+//     this->AdvanceFrozenSpecies(Y_initial, Y_final, cellNumber, subdt);
 
-    // mass fractions should always decrease in this context
-    scalarField massFractionConsumed = Y_final - Y_initial;
+//     // reactant mass fractions should always decrease in this context
+//     scalarField massFractionConsumed = Y_final - Y_initial;
     
-    // make sure that for each of the three species
-    // a significant mass fractions remains
-    forAll(Y_final, specie)
-    {
-        if (Y_final[specie] < 0.0)
-        {
-            overConsumed = true;
-        }
-    }
-    return overConsumed;
-}// end CheckFrozenSpecies
+//     // make sure that for each of the three species
+//     // a significant mass fractions remains
+//     forAll(Y_final, specie)
+//     {
+//         if (Y_final[specie] < 0.0)
+//         {
+//             overConsumed = true;
+//         }
+//     }
+//     return overConsumed;
+// }// end CheckFrozenSpecies
 
-Foam::scalar Foam::EulerImplicitSystem::GetSafeSubdt
-(
-    const scalarField& Y_initial,
-    scalarField& Y_final,
-    const label cellNumber,
-    const scalar subdt 
-)
-{
-    // safe sub dt to be determined and returned.
-    scalar safeSubdt(subdt);
+// Foam::scalar Foam::EulerImplicitSystem::GetSafeSubdt
+// (
+//     const scalarField& Y_initial,
+//     scalarField& Y_final,
+//     const label cellNumber,
+//     const scalar subdt 
+// )
+// {
+//     // safe sub dt to be determined and returned.
+//     scalar safeSubdt(subdt);
 
-    // presume that the current subdt is not safe.
-    bool dtTooLarge = true;
+//     // presume that the current subdt is not safe.
+//     bool dtTooLarge = true;
 
-    while (dtTooLarge)
-    {
-        // See if the current time step is safe
-        dtTooLarge = this->CheckFrozenSpecies(Y_initial,Y_final,cellNumber,safeSubdt);
+//     while (dtTooLarge)
+//     {
+//         // See if the current time step is safe
+//         dtTooLarge = this->CheckFrozenSpecies(Y_initial,Y_final,cellNumber,safeSubdt);
         
-        // if it doesnt work, then halve it
-        if (dtTooLarge)
-        {
-            safeSubdt *= 0.5;
-        }
+//         // if it doesnt work, then halve it
+//         if (dtTooLarge)
+//         {
+//             safeSubdt *= 0.5;
+//         }
 
-        // If the substep becomes ridiculously small 
-        // we will just return -1.
-        // The thought is that in this scenario there is so little
-        // mass fraction (for one of the specie at least)
-        // that we can't integrate without
-        // losing it all then just skip integrating at all this cell/timestep.
-        // NOTE: This needs to be improved but
-        // I think this happens very rarely if ever. We should do 
-        // speciated time steps and take the lowest probably.
-        if (safeSubdt <= subdt / 32.0 || safeSubdt < 1e-10)
-        {
-            safeSubdt = -1;
-            break;
-        }
-    }
+//         // If the substep becomes ridiculously small 
+//         // we will just return -1.
+//         // The thought is that in this scenario there is so little
+//         // mass fraction (for one of the specie at least)
+//         // that we can't integrate without
+//         // losing it all then just skip integrating at all this cell/timestep.
+//         // NOTE: This needs to be improved but
+//         // I think this happens very rarely if ever. We should do 
+//         // speciated time steps and take the lowest probably.
+//         if (safeSubdt <= subdt / 32.0 || safeSubdt < 1e-10)
+//         {
+//             safeSubdt = -1;
+//             break;
+//         }
+//     }
 
-    return safeSubdt;
-}
+//     return safeSubdt;
+// }
 
 //****************** Public member functions ********************//
 
@@ -642,45 +760,37 @@ void Foam::EulerImplicitSystem::updateSources
         // used when determining a safe sub dt.
         // The second 3 are all products of those reactions.
         // they will be not be used in determining a safe dt
-        scalarField Y_current(6,0.0);
+        scalarField Y_current(8,0.0);
         Y_current[0] = this->cellState_.frozenSpecieMassFractions()["C2H2"];
         Y_current[1] = this->cellState_.frozenSpecieMassFractions()["O2"];
         Y_current[2] = this->cellState_.frozenSpecieMassFractions()["OH"];
         Y_current[3] = this->cellState_.frozenSpecieMassFractions()["H2"];
         Y_current[4] = this->cellState_.frozenSpecieMassFractions()["CO"];
         Y_current[5] = this->cellState_.frozenSpecieMassFractions()["H"];
+        Y_current[6] = this->cellState_.frozenSpecieMassFractions()["CO2"];
+        Y_current[7] = this->cellState_.frozenSpecieMassFractions()["H2O"];
 
         // Store a constant version of these initial mass fractions
         const scalarField Y_initial(Y_current);
 
         // Create another field for storage of Mass Fractions
         // at the end of the sub time step
-        scalarField Y_final(6, 0.0);
+        scalarField Y_final(Y_current.size(), 0.0);
 
         // Find an acceptable sub time step for this cell.
-        subdt = this->GetSafeSubdt(Y_initial,Y_final,cellNumber,subdt);
+        //subdt = this->GetSafeSubdt(Y_initial,Y_final,cellNumber,subdt);
 
-        // Reset the frozen specie mass fraction (in this cell) vectors.
-        // Now that the sub step size has been determined.
+        // Reset the frozen specie mass fraction (in this cell)
+        // now that the safe sub step size has been determined.
         // Below we will evolve these mass fractions in concert with 
         // changes in the soot mass fraction.
         Y_current = Y_initial;
         Y_final = Y_initial;
-
-        // record values of soot varibles 
-        // in this cell at beginning of time step
-        // NOTE: The transport equation source is of form d(Y*rho)/dt
-        // so for the newton iterations we want Y*rho
-        //const scalar cellRho = this->rho[cellNumber];
-        const scalar cellRho = this->cellState_.thermoProperties()["rho"];
         
         // Get the soot variables in this cell at the beginning of the
-        // time step
-        // const scalar Ysoot_0(this->Y_s[cellNumber] * cellRho);
-        // const scalar N_0(this->N_s[cellNumber] * cellRho);
-
-        const scalar Ysoot_0 = this->cellState_.Ysoot() * cellRho;
-        const scalar N_0 = this->cellState_.Nsoot() * cellRho;
+        // time step and save as const
+        const scalar Ysoot_0 = this->cellState_.Ysoot();
+        const scalar N_0 = this->cellState_.Nsoot();
 
         // Intermediate temporary soot variables for storage during
         // sub step time iterations
@@ -688,68 +798,106 @@ void Foam::EulerImplicitSystem::updateSources
         scalar N_current(N_0);
 
         // variables at end of next overall (i.e. cfd) time step
-        // initialized to the intial values.
+        // initialized to the current values.
         scalar Ysoot_1(Ysoot_0);
         scalar N_1(N_0);
 
-        // loop through advancing the soot variables and local copy of frozen species 
-        // over the previously determined safe time step
-        scalar totalTime(0.0);
-        bool passed(false);
-        while(totalTime < dt)
+        // bool to specify if the explicit method over shot and we need a 
+        // new smaller time step (i.e. negative mass fractions)
+        bool explicitStepSuccess(false);
+        while(! explicitStepSuccess)
         {
-            // Reset the constants for newton's method with new frozen specie
-            // values
-            this->setConstants(cellNumber, Y_current[0], 
-            Y_current[1], Y_current[2]);
-            
-            passed = this->newtonMethodStep(subdt, Ysoot_current, N_current, 
-            Ysoot_1, N_1, relTol);
-            
-            // If the implicit method failed then take an explicit step instead
-            if (! passed)
+            // loop through advancing the soot variables and 
+            // local copy of frozen species 
+            // over the sub time step
+            scalar totalTime(0.0);
+            //bool passed(false);
+            while(totalTime < dt)
             {
+                // Reset the constants for newton's method with new frozen specie
+                // values
+                this->setConstants(cellNumber, Y_current[0], 
+                Y_current[1], Y_current[2]);
+            
+                // Advance soot variables with explicit step
                 this->explicitEuler(subdt, Ysoot_current, N_current,
                 Ysoot_1, N_1);
+
+                // Advance, explicitly, local cell copy of frozen species to be used
+                // in the next iteration for calculation of rate constants.
+                this->AdvanceFrozenSpecies(Y_current, Y_final, cellNumber, subdt, true);
+
+                // Update both the soot variables and the frozen species for
+                // the next iteration
+                Y_current = Y_final;
+                Ysoot_current = Ysoot_1;
+                N_current = N_1;
+            
+                totalTime += subdt;
+            } // end while totalTime < dt
+
+            // Now check to see if the iterations with the previous time step
+            // produced physical results (i.e. didnt over consume reactants)
+            if (min(Y_current) < 0.0)
+            {
+                Info << "Current Explicit dt of " << subdt << "[s] is too long"
+                    << " reducing to " << subdt/2.0 << "[s]."<< endl;
+
+                subdt = subdt/2.0;
+
+                // reset the frozen species and the soot varibles
+                Y_current = Y_initial;
+                Y_final = Y_initial;
+                Ysoot_current = Ysoot_0; 
+                Ysoot_1 = Ysoot_0;
+                N_current = N_0;
+                N_1 = N_0;
+                
+                // If the timestep become ridiculously small 
+                // exit loop and leave the variables unchanged
+                // results in zero sources
+                if (subdt < 1e-10)
+                {
+                    explicitStepSuccess = true;
+                }
             }
-
-            // advance, explicitly, local cell copy of frozen species to be used
-            // in the next iteration for calculation of rate constants.
-            this->AdvanceFrozenSpecies(Y_current, Y_final, cellNumber, subdt, true);
-
-            // Update both the soot variables and the frozen species for
-            // the next iteration
-            Y_current = Y_final;
-            Ysoot_current = Ysoot_1;
-            N_current = N_1;
+            else
+            {
+                // If the species mass fractions seem okay then signal success
+                explicitStepSuccess = true;
+            }
             
-            totalTime += subdt;
-        }
+        } // end while(!explicitStepSuccess)
 
-            
+        // density in this cell (assumed constant over these steps)
+        const scalar cellRho = this->cellState_.thermoProperties()["rho"];
+
         // Now set the source terms given the changes in soot mass fraction,
         // frozen specie mass fraction  and soot number density. These 
         // source terms will be used when the respective transport
         // equations are solved
+        // NOTE: Multiply by density because the transport
+        //  equations are d(rho*Y)/dt not just d(Y)/dt, 
+        //  we take rho to be constant here so just pull it out.
         const scalar cellVolume(meshVolumes[cellNumber]);
-        //const scalar cellDensity(this->rho[cellNumber]);
         // Soot number density
-        this->N_source[cellNumber] = (N_1 - N_0)*cellVolume/dt;
+        this->N_source[cellNumber] = (N_1 - N_0)*cellVolume*cellRho/dt;
         // Soot mass fraction
         this->speciesSources["SOOT"][cellNumber] = 
-            (Ysoot_1 - Ysoot_0)*cellVolume/dt;
+            (Ysoot_1 - Ysoot_0)*cellVolume*cellRho/dt;
         // Other species
         // Reactant species 
         // NOTE: Multiply by density because the transport
-        // equations are d(rho*Y)/dt not just d(Y)/dt
-        // the soot mass fraction above is already Y*rho (misleading name
-        // I agree)
+        //  equations are d(rho*Y)/dt not just d(Y)/dt
+        // and rho is constant over this step
         this->speciesSources["C2H2"][cellNumber] = 
             (Y_final[0] - Y_initial[0])*cellVolume*cellRho/dt;
         this->speciesSources["O2"][cellNumber] = 
             (Y_final[1] - Y_initial[1])*cellVolume*cellRho/dt;
         this->speciesSources["OH"][cellNumber] = 
             (Y_final[2] - Y_initial[2])*cellVolume*cellRho/dt;
+        this->speciesSources["H2O"][cellNumber] = 
+            (Y_final[7] - Y_initial[7])*cellVolume*cellRho/dt;
         // Product species
         this->speciesSources["H2"][cellNumber] = 
             (Y_final[3] - Y_initial[3])*cellVolume*cellRho/dt;
@@ -757,6 +905,9 @@ void Foam::EulerImplicitSystem::updateSources
             (Y_final[4] - Y_initial[4])*cellVolume*cellRho/dt;
         this->speciesSources["H"][cellNumber] = 
             (Y_final[5] - Y_initial[5])*cellVolume*cellRho/dt;
+        this->speciesSources["CO2"][cellNumber] = 
+            (Y_final[6] - Y_initial[6])*cellVolume*cellRho/dt;
+
 
     }// end loop through cells
     
@@ -765,7 +916,7 @@ void Foam::EulerImplicitSystem::updateSources
 
 
 // **************** Access Functions ************************//
-Foam::scalar Foam::EulerImplicitSystem::get_newton_method_failures()
-{
-    return this->newton_method_failures;
-}
+// Foam::scalar Foam::EulerImplicitSystem::get_newton_method_failures()
+// {
+//     return this->newton_method_failures;
+// }

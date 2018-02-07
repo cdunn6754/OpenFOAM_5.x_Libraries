@@ -35,16 +35,21 @@ Foam::CellState::CellState
 (
     const psiReactionThermo& thermo,
     const basicSpecieMixture& composition,
-    const scalarField& Ns
+    const scalarField& Ns,
+    const fvMesh& mesh
 )
     :
     thermo_(thermo),
     composition_(composition),
+    mesh_(mesh),
     Ns_(Ns),
-    frozenSpecieMassFractions_(6),
+    frozenSpecieMassFractions_(8),
+    frozenSpeciePPressures_(4),
     thermoProperties_(3),
     Ysoot_(0.0),
-    Nsoot_(0.0)
+    Nsoot_(0.0),
+    W_(0.0),
+    cellVolume_(0.0)
 {
     frozenSpecieMassFractions_.insert("C2H2", 0.0);
     frozenSpecieMassFractions_.insert("O2", 0.0);
@@ -52,33 +57,68 @@ Foam::CellState::CellState
     frozenSpecieMassFractions_.insert("H2", 0.0);
     frozenSpecieMassFractions_.insert("CO", 0.0);
     frozenSpecieMassFractions_.insert("H", 0.0);
+    frozenSpecieMassFractions_.insert("CO2", 0.0);
+    frozenSpecieMassFractions_.insert("H20", 0.0);
+
+    frozenSpeciePPressures_.insert("O2", 0.0);
+    frozenSpeciePPressures_.insert("OH", 0.0);
+    frozenSpeciePPressures_.insert("H2O", 0.0);
+    frozenSpeciePPressures_.insert("CO2", 0.0);
 
     thermoProperties_.insert("rho", 0.0);
     thermoProperties_.insert("T", 0.0);
     thermoProperties_.insert("p",0.0);     
 }
 
+
+
 void Foam::CellState::updateCellState
 (
     const scalar cellNumber
 )
 {
-    // get the mass fractions 
-    forAllIter(HashTable<scalar>, this->frozenSpecieMassFractions_, iter)
-    {
-        iter() = this->composition_.Y(iter.key()).primitiveField()[cellNumber];
-    }
-    Ysoot_ = this->composition_.Y("SOOT").primitiveField()[cellNumber];
-    Nsoot_ = this->Ns_[cellNumber];
 
     // thermo properties
-    thermoProperties_.set("T",this->thermo_.T().primitiveField()[cellNumber]);
-    thermoProperties_.set("p",this->thermo_.p().primitiveField()[cellNumber]);
-    thermoProperties_.set("rho", 
-    this->thermo_.rho().ref().primitiveField()[cellNumber]);
+    this->thermoProperties_.set("T",this->thermo_.T().primitiveField()[cellNumber]);
+    this->thermoProperties_.set("p",this->thermo_.p().primitiveField()[cellNumber]);
+    this->thermoProperties_.set("rho", 
+    thermo_.rho().ref().primitiveField()[cellNumber]);
+    this->W_ = this->composition_.W().ref()[cellNumber];
+
+    // get the mass fractions and partial pressures
+    // where P_i = X_i * P and X_i = (W * Y_i)/W_i
+    forAllIter(HashTable<scalar>, this->frozenSpecieMassFractions_, iter)
+    {
+        word key_ = iter.key();
+        scalar& massFraction = iter();
+
+        // set the mass fraction for this specie
+        massFraction = this->composition_.Y(key_).primitiveField()[cellNumber];
+
+        // if the specie is also one we need a pp for do that now
+        if (this->frozenSpeciePPressures_.found(key_))
+        {
+            scalar molFraction = (this->W_ * massFraction) /
+                this->composition_.W(this->composition_.species()[key_]);
+
+            scalar PPressure = molFraction * this->thermoProperties_["p"];
+
+            frozenSpeciePPressures_.insert(key_, PPressure);
+        }
+    }
+    this->Ysoot_ = this->composition_.Y("SOOT").primitiveField()[cellNumber];
+    this->Nsoot_ = this->Ns_[cellNumber];
+    
+    this->cellVolume_ = this->mesh_.V()[cellNumber];
+     
 }
 
 Foam::HashTable<scalar> Foam::CellState::frozenSpecieMassFractions()
+{
+    return frozenSpecieMassFractions_;
+}
+
+Foam::HashTable<scalar> Foam::CellState::frozenSpeciePPressures()
 {
     return frozenSpecieMassFractions_;
 }
@@ -94,5 +134,9 @@ Foam::scalar Foam::CellState::Ysoot()
 Foam::scalar Foam::CellState::Nsoot()
 {
     return Nsoot_;
+}
+Foam::scalar Foam::CellState::cellVolume()
+{
+    return cellVolume_;
 }
 			

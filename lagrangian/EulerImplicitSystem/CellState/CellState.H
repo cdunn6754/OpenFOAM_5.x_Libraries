@@ -41,11 +41,18 @@ class CellState
 
     const psiReactionThermo& thermo_;
     const basicSpecieMixture& composition_;
+    const fvMesh& mesh_;
     const scalarField& Ns_;
     HashTable<scalar> frozenSpecieMassFractions_;
+    // Partial pressures of species
+    HashTable<scalar> frozenSpeciePPressures_;
     HashTable<scalar> thermoProperties_;
     scalar Ysoot_;
     scalar Nsoot_;
+    // Mixture molecular weight [kg/kmol]
+    scalar W_;
+    // Current cell volume [m^3]
+    scalar cellVolume_;
 
 
 public:
@@ -54,9 +61,11 @@ public:
     (
         const psiReactionThermo& thermo,
         const basicSpecieMixture& composition,
-        const scalarField& Ns
+        const scalarField& Ns,
+        const fvMesh& mesh
     );
 
+    // Update the current state based on the cell number
     void updateCellState
     (
         const scalar cellNumber
@@ -64,9 +73,11 @@ public:
 
     // access functions
     HashTable<scalar> frozenSpecieMassFractions();
+    HashTable<scalar> frozenSpeciePPressures();
     HashTable<scalar> thermoProperties();
     scalar Ysoot();
     scalar Nsoot();
+    scalar cellVolume();
 
 
 }; // end class CellState

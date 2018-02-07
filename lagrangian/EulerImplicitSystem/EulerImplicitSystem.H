@@ -40,6 +40,7 @@ Description
 #include "HashTable.H"
 #include "List.H"
 #include "CellState.H"
+#include "SootReactions.H"
 
 namespace Foam
 {
@@ -52,8 +53,9 @@ class EulerImplicitSystem
     const scalar Na = 6.232e26; //Avagadros number [particles/kMol]
     const scalar sigma = 1.38e-23; // boltzman [J/K]
     const scalar Ca = 9.; //agglomeration constant [-]
-    const scalar n_c = 60.; // minimum particle number for agglomeration [particles]?
-    const scalar pi = 3.1415;
+    const scalar n_c = 60.; // minimum particle number for agglomeration [-]
+    const scalar pi = 3.1415; // ratio of the area of a circle and the square of its
+                              // radius
 
     // Const ref to the thermo
     const psiReactionThermo& thermo_;
@@ -180,6 +182,20 @@ class EulerImplicitSystem
     // Given the current thermophysical/chemical state
     // in a cell determine the reaction rates of the 
     // reactions in the soot mass fraction equation
+    // from Kronenburg(2000) and Fletcher(2017)
+    void newRatesOfChange
+    (
+    scalar& r_growth,
+    scalar& r_oxidation_O2,
+    scalar& r_oxidation_OH,
+    scalar& r_gasification_H2O,
+    scalar& r_gasification_CO2,
+    scalar& r_agglomeration
+    );
+
+    // Given the current thermophysical/chemical state
+    // in a cell determine the reaction rates of the 
+    // reactions in the soot mass fraction equation
     // from Kronenburg CMC paper.
     // Note: weird names (e.g. rate_3g) taken from same paper
     void RatesOfChange
@@ -236,7 +252,8 @@ public:
     (
         const psiReactionThermo& thermo, 
         const basicSpecieMixture& composition,
-        const volScalarField& Ns
+        const volScalarField& Ns,
+        const fvMesh& mesh
     );
 
 
