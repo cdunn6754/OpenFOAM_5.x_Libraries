@@ -43,14 +43,18 @@ Foam::CellState::CellState
     composition_(composition),
     mesh_(mesh),
     Ns_(Ns),
+    molarMassField_(Ns.size(),0.0),
     frozenSpecieMassFractions_(8),
     frozenSpeciePPressures_(4),
     thermoProperties_(3),
     Ysoot_(0.0),
     Nsoot_(0.0),
     W_(0.0),
-    cellVolume_(0.0)
+    cellVolume_(0.0),
+    cellNumber_(0.0)
+
 {
+
     frozenSpecieMassFractions_.insert("C2H2", 0.0);
     frozenSpecieMassFractions_.insert("O2", 0.0);
     frozenSpecieMassFractions_.insert("OH", 0.0);
@@ -58,7 +62,7 @@ Foam::CellState::CellState
     frozenSpecieMassFractions_.insert("CO", 0.0);
     frozenSpecieMassFractions_.insert("H", 0.0);
     frozenSpecieMassFractions_.insert("CO2", 0.0);
-    frozenSpecieMassFractions_.insert("H20", 0.0);
+    frozenSpecieMassFractions_.insert("H2O", 0.0);
 
     frozenSpeciePPressures_.insert("O2", 0.0);
     frozenSpeciePPressures_.insert("OH", 0.0);
@@ -67,25 +71,37 @@ Foam::CellState::CellState
 
     thermoProperties_.insert("rho", 0.0);
     thermoProperties_.insert("T", 0.0);
-    thermoProperties_.insert("p",0.0);     
+    thermoProperties_.insert("p",0.0);
 }
 
 
+void Foam::CellState::updateCellStateFields()
+{
+    molarMassField_ = composition_.W().ref().primitiveField();
+}
 
 void Foam::CellState::updateCellState
 (
-    const scalar cellNumber
+    const scalar cellNumber,
+    const bool updateThermo
 )
 {
 
-    // thermo properties
-    this->thermoProperties_.set("T",this->thermo_.T().primitiveField()[cellNumber]);
-    this->thermoProperties_.set("p",this->thermo_.p().primitiveField()[cellNumber]);
-    this->thermoProperties_.set("rho", 
-    thermo_.rho().ref().primitiveField()[cellNumber]);
-    this->W_ = this->composition_.W().ref()[cellNumber];
-
-    // get the mass fractions and partial pressures
+    if (updateThermo)
+    {
+        // thermo properties
+        this->thermoProperties_.set("T",this->thermo_.T().primitiveField()[cellNumber]);
+        this->thermoProperties_.set("p",this->thermo_.p().primitiveField()[cellNumber]);
+        this->thermoProperties_.set("rho", 
+        thermo_.rho().ref().primitiveField()[cellNumber]);
+        this->W_ = this->molarMassField_[cellNumber];
+        // not really thermo but this shouldn't change either.
+        // not going to work with dynamic mesh I guess.
+        this->cellVolume_ = this->mesh_.V()[cellNumber];
+        this->cellNumber_ = cellNumber;
+    }
+    
+    // Get the mass fractions and partial pressures
     // where P_i = X_i * P and X_i = (W * Y_i)/W_i
     forAllIter(HashTable<scalar>, this->frozenSpecieMassFractions_, iter)
     {
@@ -103,14 +119,50 @@ void Foam::CellState::updateCellState
 
             scalar PPressure = molFraction * this->thermoProperties_["p"];
 
-            frozenSpeciePPressures_.insert(key_, PPressure);
+            frozenSpeciePPressures_.set(key_, PPressure);
         }
     }
     this->Ysoot_ = this->composition_.Y("SOOT").primitiveField()[cellNumber];
     this->Nsoot_ = this->Ns_[cellNumber];
+}
+
+void Foam::CellState::updateCellState
+(
+    const scalarField Y_current,
+    const List<word> frozenSpecieNames,
+    const scalar Ysoot_current,
+    const scalar Nsoot_current
+)
+{
+ 
+    // loop through the frozen species
+    forAll(frozenSpecieNames, specieIndex)
+    {
+        word specieName = frozenSpecieNames[specieIndex];
+        scalar Y_specie = Y_current[specieIndex];
+        // maybe add some error handling just in case the specieName
+        // isnt int the mass fractions hash table.
+        scalar& Y_cellState = this->frozenSpecieMassFractions_[specieName];
+        
+        // update mass fraction
+        Y_cellState = Y_specie;
+
+        // if we track pp on this specie update that now too.
+        if (this->frozenSpeciePPressures_.found(specieName))
+        {
+            scalar molFraction = (this->W_ * Y_specie) /
+                this->composition_.W(this->composition_.species()[specieName]);
+            
+            scalar PPressure = molFraction * this->thermoProperties_["p"];
+
+            frozenSpeciePPressures_.set(specieName, PPressure);
+        }
+    }
     
-    this->cellVolume_ = this->mesh_.V()[cellNumber];
-     
+    // Finally do the soot species too.
+    this->Ysoot_ = Ysoot_current;
+    this->Nsoot_ = Nsoot_current;
+    
 }
 
 Foam::HashTable<scalar> Foam::CellState::frozenSpecieMassFractions()
@@ -138,5 +190,9 @@ Foam::scalar Foam::CellState::Nsoot()
 Foam::scalar Foam::CellState::cellVolume()
 {
     return cellVolume_;
+}
+Foam::scalar Foam::CellState::cellNumber()
+{
+    return cellNumber_;
 }
 			

@@ -26,6 +26,17 @@ Description
 \*---------------------------------------------------------------------------*/
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// TODO//
+// 1) make the Y_current, etc. scalarField into a hashtable. I think it will make it
+//    much more readable and make some other things easier.
+// 2) combine the explicit step function for soot and the frozen variables so
+//    we only need to calculate the reaction rates once per time step.
+//    maybe add them to the cellState.
+// 3) related to 2), maybe add a reation class that can hold all of the reactions
+//    and return the reation rates. That way it would be easier to change reactions
+//    in the future maybe even at runtime.
+
 #ifndef EulerImplicitSystem_H
 #define EulerImplicitSystem_H
 
@@ -41,6 +52,8 @@ Description
 #include "List.H"
 #include "CellState.H"
 #include "SootReactions.H"
+#include <time.h>
+#include <stdio.h>
 
 namespace Foam
 {
@@ -185,12 +198,12 @@ class EulerImplicitSystem
     // from Kronenburg(2000) and Fletcher(2017)
     void newRatesOfChange
     (
-    scalar& r_growth,
-    scalar& r_oxidation_O2,
-    scalar& r_oxidation_OH,
-    scalar& r_gasification_H2O,
-    scalar& r_gasification_CO2,
-    scalar& r_agglomeration
+        scalar& r_growth,
+        scalar& r_oxidation_O2,
+        scalar& r_oxidation_OH,
+        scalar& r_gasification_H2O,
+        scalar& r_gasification_CO2,
+        scalar& r_agglomeration
     );
 
     // Given the current thermophysical/chemical state

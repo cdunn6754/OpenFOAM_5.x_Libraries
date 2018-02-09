@@ -33,6 +33,9 @@ Class to hold cell thermophysical state for the EulerImplicit integration.
 #include "fvCFD.H"
 #include "psiReactionThermo.H"
 
+#include <time.h>
+#include <printf.h>
+
 namespace Foam
 {
 
@@ -43,6 +46,9 @@ class CellState
     const basicSpecieMixture& composition_;
     const fvMesh& mesh_;
     const scalarField& Ns_;
+    // mixture molar mass field[kg/mol]
+    // only changes when the main cfd time step changes
+    scalarField molarMassField_;
     HashTable<scalar> frozenSpecieMassFractions_;
     // Partial pressures of species
     HashTable<scalar> frozenSpeciePPressures_;
@@ -53,6 +59,8 @@ class CellState
     scalar W_;
     // Current cell volume [m^3]
     scalar cellVolume_;
+    // Cell index
+    scalar cellNumber_;
 
 
 public:
@@ -65,10 +73,31 @@ public:
         const fvMesh& mesh
     );
 
+    // When a new cfd time step is reached we need
+    // to update some of the fields stored in this class
+    void updateCellStateFields();
+
     // Update the current state based on the cell number
+    // This pulls the data from the main volFields.
+    // - Optional updating of the thermo variables
     void updateCellState
     (
-        const scalar cellNumber
+        const scalar cellNumber,
+        const bool updateThermo = true
+    );
+    
+    // In the sub time steps we need to update just the 
+    // - mass fractions of the frozen species
+    // - mass fraction of the soot
+    // - particle number density
+    // In the cell while leaving the cell thermo state as it is since
+    // it doesnt evolve during the sub dt's anyway.
+    void updateCellState
+    (
+        const scalarField Y_current,
+        const List<word> frozenSpecieNames,
+        const scalar Ysoot_current,
+        const scalar Nsoot_current
     );
 
     // access functions
@@ -78,6 +107,7 @@ public:
     scalar Ysoot();
     scalar Nsoot();
     scalar cellVolume();
+    scalar cellNumber();
 
 
 }; // end class CellState
