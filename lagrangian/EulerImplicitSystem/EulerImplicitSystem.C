@@ -195,7 +195,7 @@ void Foam::EulerImplicitSystem::ratesOfChange
                 
 // }
 
-void Foam::EulerImplicitSystem::AdvanceFrozenSpecies
+void Foam::EulerImplicitSystem::explicitStep
 (
     const scalarField& Y_initial,
     scalarField& Y_final,
@@ -344,6 +344,36 @@ void Foam::EulerImplicitSystem::advanceToZero
     Y_current[worstIndex] = Foam::VSMALL;
 }
 
+void Foam::EulerImplicitSystem::exhaustLowSpecie
+(
+    const scalar totalTime, 
+    scalar& smallSubTime,
+    const scalarField& Y_initial,
+    scalarField& Y_final
+)
+{
+    // TODO: this whole function can be done better with a rewrite of 
+    // advanceToZero(). It just fixes the most negative value. That leaves
+    // open the possibility that another negative number wont be fixed 
+    // depending on the initial values. What should be done is to fix
+    // the specie that goes to zero first, not the one that goes the
+    // most negative. They don't have the same rates.
+    // For now just do an initial correction and then correct
+    // more over the new timestep if there are still negative values
+    // after the first advancetoZero call.
+    this->advanceToZero(totalTime, smallSubTime, Y_initial, Y_final);
+
+    // check to see that we got it otherwise take care of other
+    // negative mass fractions
+    bool allPositive = (min(Y_final) >= 0.0);
+    scalar newDt(0.0);
+    while (!allPositive)
+    {	
+        this->advanceToZero(smallSubTime, newDt, Y_initial, Y_final);
+        smallSubTime = newDt;
+        allPositive = (min(Y_final) >= 0.0);
+    }
+}
 //****************** Public member functions ********************//
 
 Foam::tmp<Foam::fvScalarMatrix> Foam::EulerImplicitSystem::sourceN
@@ -417,9 +447,13 @@ void Foam::EulerImplicitSystem::updateSources
     // Set the number of time refinements before just exhausting the worst specie
     label iterationCutOff(6);
 
-    // Local storage for frozen mass fractions
+    // Local storage for mass fractions of species and soot variables
     scalarField Y_current(10,0.0);
-    // Index this list with the names of the species
+    // Create another field for storage of Mass Fractions/ Ns
+    // at the end of the sub time step
+    scalarField Y_final(Y_current.size(), 0.0);
+    
+    // Index the species list with the names of the species
     List<word> frozenSpecieNames(8,"none");
     frozenSpecieNames[0] = word("C2H2");
     frozenSpecieNames[1] = word("O2");
@@ -459,74 +493,53 @@ void Foam::EulerImplicitSystem::updateSources
 
         // Store a constant version of these initial mass fractions
         const scalarField Y_initial(Y_current);
-
-        // Create another field for storage of Mass Fractions
-        // at the end of the sub time step
-        scalarField Y_final(Y_current.size(), 0.0);
-
-        // Reset the frozen specie mass fraction (in this cell)
-        // now that the safe sub step size has been determined.
-        // Below we will evolve these mass fractions in concert with 
-        // changes in the soot mass fraction.
-        Y_current = Y_initial;
         Y_final = Y_initial;
-        
-        // // Get the soot variables in this cell at the beginning of the
-        // // time step and save as const
-        // const scalar Ysoot_0 = this->cellState_.Ysoot();
-        // const scalar N_0 = this->cellState_.Nsoot();
 
-        // // Intermediate temporary soot variables for storage during
-        // // sub step time iterations
-        // scalar Ysoot_current(Ysoot_0);
-        // scalar N_current(N_0);
 
-        // // variables at end of next overall (i.e. cfd) time step
-        // // initialized to the current values.
-        // scalar Ysoot_1(Ysoot_0);
-        // scalar N_1(N_0);
-
-        // bool to specify if the explicit method over shot and we need a 
-        // new smaller time step (i.e. negative mass fractions)
-        bool explicitStepSuccess(false);
-        while(! explicitStepSuccess)
+        // Time that integration has progressed in this cell
+        scalar integratedTime = 0.0;
+        while(totalTime < dt)
         {
-            // loop through advancing the soot variables and 
-            // local copy of frozen species 
-            // over the sub time step
-            scalar totalTime(0.0);
-            bool notNegative(true);
+       
+            // Advance, explicitly, local cell copy of species an Ns
+            this->explicitStep(Y_current, Y_final, cellNumber, subdt, true);
 
-            while(totalTime < dt and notNegative)
+            // It's possible that the explicit step may be too long 
+            // and we exhaust the supply of a reactant specie
+            if (min(Y_final) < 0.0)
             {
-                // Advance soot variables with explicit step.
-	      // this->explicitEuler(subdt, Y_current[8], Y_current[9],
-	      // 			  Y_final[8], Y_final[9]);
+                // Integrates only until the first specie to reach zero does 
+                // so. Then calculates how much time that would take, that is
+                // 'smallTime'.
+                this->exhaustLowSpecie(integratedTime, smallTime,
+                Y_initial, Y_current);
                 
-                // Advance, explicitly, local cell copy of frozen species to be used
-                // in the next iteration for calculation of rate constants.
-                this->AdvanceFrozenSpecies(Y_current, Y_final, cellNumber, subdt, true);
-
-                // Update both the soot variables and the frozen species for
-                // the next iteration
-                Y_current = Y_final;
-
-                // before the rates are recalculated on the next iteration update the
-                // cell state but only frozen species and soot mass fractions,
-                // and soot particle number density. 
-                //The thermo/cell volume shouldn't be changing anyway.
-                cellState_.updateCellState(Y_current, frozenSpecieNames,
-                Y_current[8], Y_current[9]);
-
-                // Keep track of total time integrated
+                // Record the small time integration
+                totalTime += smallTime;
+                // Set subdt for the next time step
+                subdt = subdt - smallTime;
+            }
+            else
+            {
+                // If there was not problem with negative mass fractions
+                // record the time step time taken
+                // and then make sure subdt is set back to the default.
                 totalTime += subdt;
+                subdt = dt/nSubSteps;
+            }
 
-                // If it goes negative kick out of loop and handle it
-                if (min(Y_current) < 0.0)
-                {
-                    notNegative = false;
-                }
-            } // end while (totalTime < dt and notNegative)
+            // Update both the soot variables and the frozen species for
+            // the next iteration
+            Y_current = Y_final;
+
+            // before the rates are recalculated on the next iteration update the
+            // cell state but only frozen species and soot mass fractions,
+            // and soot particle number density. 
+            //The thermo/cell volume shouldn't be changing anyway.
+            cellState_.updateCellState(Y_current, frozenSpecieNames,
+            Y_current[8], Y_current[9]);
+
+        } // end while (totalTime < dt)
 
             // Now check to see if the iterations with the previous time step
             // produced physical results (i.e. didnt over consume reactants)
@@ -580,7 +593,6 @@ void Foam::EulerImplicitSystem::updateSources
                 // If the species mass fractions are at least positive then signal success
                 explicitStepSuccess = true;
             }
-        } // end while(!explicitStepSuccess)
 
         // density in this cell (assumed constant over these steps)
         const scalar cellRho = this->cellState_.thermoProperties()["rho"];

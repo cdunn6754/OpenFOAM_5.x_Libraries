@@ -116,7 +116,7 @@ class EulerImplicitSystem
     // For a cell perform a single exlicit step
     // with the provided sub time step to calculate the
     // mass fractions at the end of subdt. 
-    void AdvanceFrozenSpecies
+    void explicitStep
     (
         const scalarField& Y_initial,
         scalarField& Y_final,
@@ -127,14 +127,22 @@ class EulerImplicitSystem
 
     // In the likely event that the required explicit timestep
     // becomes untenable just advance the problem specie to 0.0.
-    // Interpolate that change to the other species and the soot
-    // variables as well.
+    // Interpolate that change to the other species, the soot
+    // variables and find the corresponding time as well (smallSubTime)
     void advanceToZero
     (
         const scalar totalTime,
         scalar& smallSubTime,
         const scalarField& Y_initial,
         scalarField& Y_current
+    );
+
+    void exhaustLowSpecie
+    (
+        const scalar totalTime,
+        scalar& smallSubTime,
+        const scalarField& Y_initial,
+        scalarField& Y_final
     );
 
 public: 
