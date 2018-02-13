@@ -52,6 +52,8 @@ Description
 #include "List.H"
 #include "CellState.H"
 #include "SootReactions.H"
+#include "ODESystem.H"
+
 #include <time.h>
 #include <stdio.h>
 
@@ -67,8 +69,7 @@ class EulerImplicitSystem
     const scalar sigma = 1.38e-23; // boltzman [J/K]
     const scalar Ca = 9.; //agglomeration constant [-]
     const scalar n_c = 60.; // minimum particle number for agglomeration [-]
-    const scalar pi = 3.1415; // ratio of the area of a circle and the square of its
-                              // radius
+    const scalar pi = 3.1415;
 
     // Const ref to the thermo
     const psiReactionThermo& thermo_;
@@ -89,86 +90,6 @@ class EulerImplicitSystem
     // Sources for the other related species
     HashTable<scalarField> speciesSources;
 
-    // tracks number of cells in which 
-    // the newtons method iterations failed 
-    // to converge
-    scalar newton_method_failures;
-    
-    // Constants are determined from examination of 
-    // soot equation source equations while
-    // only considering Y_s and N_s to be varible.
-    // Keys are of the form "equation#_term#"
-    HashTable<scalar> C_;
-
-
-    // Set the constants for cellNumber cell 
-    // based on current species/rho/T from main fields
-    void setConstants(const label& cellNumber);
-
-    // Set cell constants based on the global thermo fields (rho and T)
-    // but use provided cell mass fractions.
-    // This is used in the inner iterations when the frozen species
-    // are updated but the other thermo fields are not.
-    void setConstants
-    (
-        const label& cellNumber,
-        const scalar Y_c2h2_,
-        const scalar Y_o2_,
-        const scalar Y_oh_
-    );
-
-
-    label nEqns() const;
-
-    // The value of the derivatives given Y and N
-    // I.E. dY/dt = f(Y,N) with f taken from Kronenburg 
-    // CMC paper
-    void derivatives
-    (
-        const scalar& Y, 
-        const scalar& N,
-        scalarField& derivative
-    );
-
-    // Evaluate the newton equations for the euler implicit form of the 
-    // two source equations i.e. 'Y^i - Y^(i-1) - dt(dY/dt^i) = 0
-    // for a single cell.
-    // Assumes
-    // Y_i and N_i hold the values at the integration start time.
-    // 
-    // Y,N - values for Y_soot and N_soot (guessed values most often)
-    // dt - Euler implicit integration time step
-    // fY, fN - values of the newton method equations evaluated at Y and N
-    void newtonEquations
-    (
-        const scalar& Y,
-        const scalar& N,
-        const scalar& Y_i,
-        const scalar& N_i,
-        const scalar dt,
-        scalar& fY,
-        scalar& fN
-    )const ;
-
-    // Find the Jacobian of the newton method system
-    // i.e. the derivatives of the functions from
-    // newtonEquations
-    // again this peforms the calculation for a single cell.
-    void jacobian
-    (
-        const scalar& Y,
-        const scalar& N,
-        const scalar dt,
-        scalarSquareMatrix& J,
-        scalarSquareMatrix& invJ
-    ) const;
-
-    void invertJacobian
-    (
-        const scalarSquareMatrix& J,
-        scalarSquareMatrix& invJ
-    ) const;
-
     void explicitEuler
     (
         const scalar subdt,
@@ -178,25 +99,11 @@ class EulerImplicitSystem
         scalar& N_1
     );
 
-
-    // Integrate over timestep dt.
-    // Once Y^(t+dt),N ^(t + dt) are found use them to find the 
-    // source terms. Update sources.
-    bool newtonMethodStep
-    (
-        const scalar dt,
-        const scalar Y_0,
-        const scalar N_0,
-        scalar& Y_1,
-        scalar& N_1,
-        const scalar relTol = 1e-6
-    );
-
     // Given the current thermophysical/chemical state
     // in a cell determine the reaction rates of the 
     // reactions in the soot mass fraction equation
     // from Kronenburg(2000) and Fletcher(2017)
-    void newRatesOfChange
+    void ratesOfChange
     (
         scalar& r_growth,
         scalar& r_oxidation_O2,
@@ -205,21 +112,6 @@ class EulerImplicitSystem
         scalar& r_gasification_CO2,
         scalar& r_agglomeration
     );
-
-    // Given the current thermophysical/chemical state
-    // in a cell determine the reaction rates of the 
-    // reactions in the soot mass fraction equation
-    // from Kronenburg CMC paper.
-    // Note: weird names (e.g. rate_3g) taken from same paper
-    void RatesOfChange
-    (
-    scalar& rate_3n,
-    scalar& rate_3g,
-    scalar& rate_4,
-    scalar& rate_5,
-    const label cellNumber
-    );
-
 
     // For a cell perform a single exlicit step
     // with the provided sub time step to calculate the
@@ -233,29 +125,16 @@ class EulerImplicitSystem
         const bool advanceProductSpecies = false
     );
 
-    // Determine, for this cell, if the any of 
-    // frozen species will be entirely consumed.
-    // If they are then true is returned. If not 
-    // and the advancement is safe then false is returned.
-    bool CheckFrozenSpecies
+    // In the likely event that the required explicit timestep
+    // becomes untenable just advance the problem specie to 0.0.
+    // Interpolate that change to the other species and the soot
+    // variables as well.
+    void advanceToZero
     (
+        const scalar totalTime,
+        scalar& smallSubTime,
         const scalarField& Y_initial,
-        scalarField& Y_final,
-        const label cellNumber,
-        const scalar subdt
-    );
-
-    // Determine an appropriate/safe sub dt step for the 
-    // source integration such that the 'frozen' species
-    // are not overconsumed.
-    // subdt is the initial default time step (1/2 CFD dt)
-    // if the substep becomes too small it returns -1
-    scalar GetSafeSubdt
-    (
-        const scalarField& Y_initial,
-        scalarField& Y_final,
-        const label cellNumber,
-        const scalar subdt 
+        scalarField& Y_current
     );
 
 public: 
@@ -281,8 +160,6 @@ public:
     );
 
     // **************** Access Functions ************************//
-    // Return the number of failures for the most recent run
-    scalar get_newton_method_failures();
     
     // Return the source for the N_s equation
     tmp<fvScalarMatrix> sourceN
