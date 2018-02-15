@@ -75,6 +75,8 @@ class EulerImplicitSystem
     const psiReactionThermo& thermo_;
     // Const ref to the composition
     const basicSpecieMixture& composition_;
+    // Const ref to mesh
+    const fvMesh& mesh_;
     // CellState object 
     CellState cellState_;
     // make the proper dimension sets for the sources
@@ -89,6 +91,8 @@ class EulerImplicitSystem
 
     // Sources for the other related species
     HashTable<scalarField> speciesSources;
+    // Source for enthalpy equation
+    scalarField Qdot_;
 
     void explicitEuler
     (
@@ -137,6 +141,13 @@ class EulerImplicitSystem
         scalarField& Y_current
     );
 
+    // If there are negative mass fractions after explicit integration
+    // This will call advanceToZero (multiple times if need be) to correct that
+    // It returns in the references:
+    // - the corresponding smallSubtime step needed to make the worst 
+    //   problem specie reach zero but not go negative.
+    // - the corresponding other species in Y_final. As though they had been 
+    //   evolved with timestep smallSubTime.
     void exhaustLowSpecie
     (
         const scalar totalTime,
@@ -144,6 +155,10 @@ class EulerImplicitSystem
         const scalarField& Y_initial,
         scalarField& Y_final
     );
+
+    // Correct the Qdot based on the sources for the
+    // species equations
+    void correctQdot();
 
 public: 
 
@@ -163,7 +178,7 @@ public:
     (
         const scalar dt,
         const scalarField meshVolumes,
-        const label nSubSteps = 2, 
+        const label nSubSteps = 3, 
         const scalar relTol = 1e-6
     );
 
@@ -178,10 +193,13 @@ public:
     // This will be called in all species equations
     // it returns the appropriate sources depending
     // on the specie mass fraction argument.
-    tmp<fvScalarMatrix> sourceY
+    tmp<volScalarField> sourceY
     (
         const volScalarField& Y_field
     );
+
+    // Return the enthalpy source from the reactions
+    tmp<volScalarField> Qdot();
 
 
 }; // end of class EulerImlicitSystem

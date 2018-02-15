@@ -51,7 +51,8 @@ Foam::CellState::CellState
     Nsoot_(0.0),
     W_(0.0),
     cellVolume_(0.0),
-    cellNumber_(0.0)
+    cellNumber_(0.0),
+    cellCenter_(0.0,0.0,0.0)
 
 {
 
@@ -99,6 +100,7 @@ void Foam::CellState::updateCellState
         // not going to work with dynamic mesh I guess.
         this->cellVolume_ = this->mesh_.V()[cellNumber];
         this->cellNumber_ = cellNumber;
+        this->cellCenter_ = this->mesh_.C().internalField()[cellNumber];
     }
     
     // Get the mass fractions and partial pressures
@@ -120,7 +122,9 @@ void Foam::CellState::updateCellState
             scalar PPressure = molFraction * this->thermoProperties_["p"];
 
             frozenSpeciePPressures_.set(key_, PPressure);
+
         }
+
     }
     this->Ysoot_ = this->composition_.Y("SOOT").primitiveField()[cellNumber];
     this->Nsoot_ = this->Ns_[cellNumber];
@@ -172,7 +176,7 @@ Foam::HashTable<scalar> Foam::CellState::frozenSpecieMassFractions()
 
 Foam::HashTable<scalar> Foam::CellState::frozenSpeciePPressures()
 {
-    return frozenSpecieMassFractions_;
+    return frozenSpeciePPressures_;
 }
 
 Foam::HashTable<scalar> Foam::CellState::thermoProperties()
@@ -194,5 +198,9 @@ Foam::scalar Foam::CellState::cellVolume()
 Foam::scalar Foam::CellState::cellNumber()
 {
     return cellNumber_;
+}
+Foam::vector Foam::CellState::cellCenter()
+{
+    return cellCenter_;
 }
 			

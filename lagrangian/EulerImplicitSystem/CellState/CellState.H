@@ -61,6 +61,7 @@ class CellState
     scalar cellVolume_;
     // Cell index
     scalar cellNumber_;
+    vector cellCenter_;
 
 
 public:
@@ -108,6 +109,7 @@ public:
     scalar Nsoot();
     scalar cellVolume();
     scalar cellNumber();
+    vector cellCenter();
 
 
 }; // end class CellState
