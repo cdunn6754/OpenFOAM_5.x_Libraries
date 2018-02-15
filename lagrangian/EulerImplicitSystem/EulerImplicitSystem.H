@@ -94,6 +94,18 @@ class EulerImplicitSystem
     // Source for enthalpy equation
     scalarField Qdot_;
 
+    // DEBUG
+    volScalarField& rGro_;
+    volScalarField& rOxO2_;
+    volScalarField& rOxOH_;
+    volScalarField& rGasH2O_;
+    volScalarField& rGasCO2_;
+    volScalarField& rAgg_;
+    volScalarField& rKronOH_;
+
+    // ...........................................................//
+    // // Member functions
+
     void explicitEuler
     (
         const scalar subdt,
@@ -168,7 +180,14 @@ public:
         const psiReactionThermo& thermo, 
         const basicSpecieMixture& composition,
         const volScalarField& Ns,
-        const fvMesh& mesh
+        const fvMesh& mesh,
+        volScalarField& rGro,
+        volScalarField& rOxO2,
+        volScalarField& rOxOH,
+        volScalarField& rGasH2O,
+        volScalarField& rGasCO2,
+        volScalarField& rAgg,
+        volScalarField& rKronOH
     );
 
 
@@ -200,7 +219,6 @@ public:
 
     // Return the enthalpy source from the reactions
     tmp<volScalarField> Qdot();
-
 
 }; // end of class EulerImlicitSystem
 

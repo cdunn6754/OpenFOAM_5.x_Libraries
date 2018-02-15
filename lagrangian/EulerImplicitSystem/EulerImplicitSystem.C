@@ -37,7 +37,14 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
     const psiReactionThermo& thermo, 
     const basicSpecieMixture& composition,
     const volScalarField& Ns,
-    const fvMesh& mesh
+    const fvMesh& mesh,
+    volScalarField& rGro,
+    volScalarField& rOxO2,
+    volScalarField& rOxOH,
+    volScalarField& rGasH2O,
+    volScalarField& rGasCO2,
+    volScalarField& rAgg,
+    volScalarField& rKronOH
 )
     :
     thermo_(thermo),
@@ -46,10 +53,18 @@ Foam::EulerImplicitSystem::EulerImplicitSystem
     cellState_(thermo, composition, Ns, mesh),
     Y_source_dims(1,0,-1,0,0),// Source dimensions (already multipied by volume)
     N_source_dims(0,0,-1,0,0),// Source dimensions (already multipied by volume)
-    MW_(9),
-    N_source(Ns.size(),0.0),
-    speciesSources(9),
-    Qdot_(Ns.size(),0.0)
+MW_(9),
+N_source(Ns.size(),0.0),
+speciesSources(9),
+Qdot_(Ns.size(),0.0),
+rGro_(rGro),
+rOxO2_(rOxO2),
+rOxOH_(rOxOH),
+rGasH2O_(rGasH2O),
+rGasCO2_(rGasCO2),
+rAgg_(rAgg),
+rKronOH_(rKronOH)
+
 {
     Info<< "Creating Soot Model Solver \n\n" << endl;
     
@@ -154,6 +169,18 @@ void Foam::EulerImplicitSystem::ratesOfChange
         Foam::sqr(cell_rho * cell_Ns);
 
     // DEBUG
+    scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
+    const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
+    scalar r_Kron_OH = 0.36 * Foam::sqrt(cell_T) * cell_As * C_oh; // [kmol/(m^3*s)]
+    
+    rGro_[cellState_.cellNumber()] = r_growth;
+    rOxO2_[cellState_.cellNumber()] = r_oxidation_O2;
+    rOxOH_[cellState_.cellNumber()] = r_oxidation_OH;
+    rGasH2O_[cellState_.cellNumber()] = r_gasification_H2O;
+    rGasCO2_[cellState_.cellNumber()] = r_gasification_CO2;
+    rAgg_[cellState_.cellNumber()] = r_agglomeration;
+    rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
+
     r_gasification_CO2 = 0.0;
     r_gasification_H2O = 0.0;
     
@@ -437,12 +464,15 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
             )
         );
 
-    // get the reference to fvMatrix that tmp is wrapped around
+    // get the reference to volScalarField that tmp is wrapped around
     volScalarField& sourceY = tSourceY.ref();
 
     if (this->speciesSources.found(specieName))
     {
         sourceY.primitiveFieldRef() = this->speciesSources[specieName];
+        
+        Info << "Getting source for : " << specieName << 
+            " Max value is: " << max(cmptMag(speciesSources[specieName])) << endl;
         
         // reset field to zero in preparation for next time step.
         this->speciesSources[specieName] = 0.0;
@@ -642,6 +672,15 @@ void Foam::EulerImplicitSystem::updateSources
             (Y_final[6] - Y_initial[6])*cellRho/dt;
 
     }// end loop through cells
+
+    forAllIter(HashTable<scalarField>, speciesSources, iter_)
+    {
+        word specieName(iter_.key());
+
+        Info << specieName << " max(Source): " <<
+            max(cmptMag(iter_())) << endl;
+        
+    }
     
     // based on the updated species sources calculate the enthalpy source
     this->correctQdot();
