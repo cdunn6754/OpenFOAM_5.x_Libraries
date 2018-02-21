@@ -396,7 +396,7 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceN()
                     false
                 ),
                 this->mesh_,
-                dimensionedScalar("zero", dimMass/dimVolume/dimTime, 0.0)
+                dimensionedScalar("zero", dimless/dimVolume/dimTime, 0.0)
             )
         );
 
