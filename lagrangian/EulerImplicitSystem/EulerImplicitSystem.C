@@ -464,9 +464,7 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
 void Foam::EulerImplicitSystem::updateSources
 (
     const scalar dt,
-    const scalarField meshVolumes,
-    const label nSubSteps,
-    const scalar relTol
+    const label nSubSteps
 )
 {  
 

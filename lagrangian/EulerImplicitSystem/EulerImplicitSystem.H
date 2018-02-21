@@ -196,9 +196,7 @@ public:
     void updateSources
     (
         const scalar dt,
-        const scalarField meshVolumes,
-        const label nSubSteps = 3, 
-        const scalar relTol = 1e-6
+        const label nSubSteps = 3
     );
 
     // **************** Access Functions ************************//
