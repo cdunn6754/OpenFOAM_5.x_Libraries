@@ -378,22 +378,37 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::Qdot()
         return tQdot;
 }
 
-Foam::tmp<Foam::fvScalarMatrix> Foam::EulerImplicitSystem::sourceN
-(
-    const volScalarField& N_soot
-)
+Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceN()
 {
-    tmp<fvScalarMatrix> tfvm(new fvScalarMatrix(N_soot, N_source_dims));
+    //tmp<fvScalarMatrix> tfvm(new fvScalarMatrix(N_soot, N_source_dims));
+
+    tmp<volScalarField> tSourceN
+        (
+            new volScalarField
+            (
+                IOobject
+                (
+                    "sourceN",
+                    this->mesh_.time().timeName(),
+                    this->mesh_,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE,
+                    false
+                ),
+                this->mesh_,
+                dimensionedScalar("zero", dimMass/dimVolume/dimTime, 0.0)
+            )
+        );
 
     // get reference to the fvmatrix inside the tmp
-    fvScalarMatrix& fvm = tfvm.ref();
+    volScalarField& Nsource = tSourceN.ref();
 
-    fvm.source() = -this->N_source;
+    Nsource.primitiveFieldRef() = this->N_source;
 
     // reset field to zero in preparation for next time step.
     this->N_source = 0.0;
 
-    return tfvm;
+    return tSourceN;
 }
 
 
@@ -596,10 +611,10 @@ void Foam::EulerImplicitSystem::updateSources
         // NOTE: Multiply by density because the transport
         //  equations are d(rho*Y)/dt not just d(Y)/dt, 
         //  we take rho to be constant here so just pull it out.
-        const scalar cellVolume(meshVolumes[cellNumber]);
+
         // Soot number density
         this->N_source[cellNumber] = 
-	  (Y_final[9] - Y_initial[9])*cellVolume*cellRho/dt;
+	  (Y_final[9] - Y_initial[9])*cellRho/dt;
         // Soot mass fraction
         this->speciesSources["SOOT"][cellNumber] = 
             (Y_final[8] - Y_initial[8])*cellRho/dt;
@@ -638,7 +653,6 @@ void Foam::EulerImplicitSystem::updateSources
         // }
 
     }// end loop through cells
-
 
 
     // forAllIter(HashTable<scalarField>, speciesSources, iter_)

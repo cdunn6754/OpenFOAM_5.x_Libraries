@@ -204,10 +204,7 @@ public:
     // **************** Access Functions ************************//
     
     // Return the source for the N_s equation
-    tmp<fvScalarMatrix> sourceN
-    (
-        const volScalarField& N_soot
-    );
+    tmp<volScalarField> sourceN();
     
     // This will be called in all species equations
     // it returns the appropriate sources depending
