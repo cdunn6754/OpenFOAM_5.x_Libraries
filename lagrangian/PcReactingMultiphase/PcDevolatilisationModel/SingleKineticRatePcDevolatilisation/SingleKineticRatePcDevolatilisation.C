@@ -133,7 +133,7 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
     const scalar dafMass0 = Ydaf0_ * mass0;
 
     // Convert the builtin RR from [J/kmol K] 
-    // to [kcal/mol K] (PCCL B.S.)
+    // to [kcal/mol K] (PCCL)
     const scalar pcR = ((RR/1000.)/4184);
     
     // Loop through volatile species

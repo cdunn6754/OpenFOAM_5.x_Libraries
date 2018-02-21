@@ -181,6 +181,16 @@ void Foam::EulerImplicitSystem::ratesOfChange
     rAgg_[cellState_.cellNumber()] = r_agglomeration;
     rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
 
+    // if (cellState_.cellNumber() == 235)
+    // {
+    //     Info << "Rates: \n"  <<
+    //         r_growth << "\n" <<
+    //         r_oxidation_O2 << "\n" <<
+    //         r_oxidation_OH << "\n" <<
+    //         r_gasification_H2O << "\n" <<
+    //         r_gasification_CO2 << "\n" << endl;
+    // }
+
     r_gasification_CO2 = 0.0;
     r_gasification_H2O = 0.0;
     
@@ -197,13 +207,6 @@ void Foam::EulerImplicitSystem::explicitStep
 {
     // density in this cell
     const scalar cell_rho = this->cellState_.thermoProperties()["rho"];
-    // get relevant state variables for the cell
-    // start with per volume mass in cell [kg/m^3]
-    const scalar massC2H2(Y_initial[0]*cell_rho);
-    const scalar massO2(Y_initial[1]*cell_rho);
-    const scalar massOH(Y_initial[2]*cell_rho);
-    const scalar massCO2(Y_initial[6]*cell_rho);
-    const scalar massH2O(Y_initial[7]*cell_rho);
     
     // rates for soot mass fraction reactions [kmol/(m^3 * s)]
     scalar r_growth(0.0); // growth of soot particle from c2h2 not nucleation
@@ -216,70 +219,25 @@ void Foam::EulerImplicitSystem::explicitStep
     // calculate the rates
     this->ratesOfChange(r_growth, r_oxidation_O2,r_oxidation_OH, 
     r_gasification_H2O, r_gasification_CO2, r_agglomeration);
+
     
-    // Explicit time step
-    // Reactant species
-    scalar massC2H2Final = massC2H2 - this->MW_["C2H2"]*r_growth*subdt;
-    scalar massO2Final = massO2 - this->MW_["O2"]*r_oxidation_O2*subdt;
-    scalar massOHFinal = massOH - this->MW_["OH"]*r_oxidation_OH*subdt;
-    scalar massCO2Final = massCO2 - this->MW_["CO2"]*r_gasification_CO2*subdt;
-    scalar massH2OFinal = massH2O - this->MW_["H2O"]*r_gasification_H2O*subdt;
-
-
-    // Assume the overall cell density has not changed 
-    // convert back to mass fractions
-    Y_final[0]= massC2H2Final / cell_rho;
-    Y_final[1]= massO2Final / cell_rho;
-    Y_final[2]= massOHFinal / cell_rho;
-
-    // Product species
-    if (advanceProductSpecies)
-    {
-        // get the mass /volume of the product species
-        const scalar massH2(Y_initial[3]*cell_rho);
-        const scalar massCO(Y_initial[4]*cell_rho);
-        const scalar massH(Y_initial[5]*cell_rho);
-        
-        
-        // Add the mass/volume from the current explict step
-        // (it's always a source for theses species)
-        scalar massH2Final = massH2 + this->MW_["H2"]*(r_growth + r_gasification_H2O)
-            *subdt;
-        scalar massCOFinal = massCO + this->MW_["CO"]*(r_oxidation_OH +
-            r_gasification_H2O + 2*r_gasification_CO2) *subdt;
-        scalar massHFinal = massH + this->MW_["H"]*(r_oxidation_OH)*subdt;
-        // CO2 is also a reactant in gasification
-        massCO2Final += this->MW_["CO2"]*(r_oxidation_O2)*subdt;
-        
-
-        // Convert back to mass fraction
-        Y_final[3] = massH2Final/cell_rho;
-        Y_final[4] = massCOFinal/cell_rho;
-        Y_final[5] = massHFinal/cell_rho;
-        Y_final[6] = massCO2Final/cell_rho;
-        Y_final[7] = massH2OFinal/cell_rho;
-    }
-
+    // Explicit step for the Mass Fractions
+    Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
+    Y_final[1] = Y_initial[1] - this->MW_["O2"]*(r_oxidation_O2)*subdt/cell_rho;
+    Y_final[2] = Y_initial[2] - this->MW_["OH"]*(r_oxidation_OH)*subdt/cell_rho;
+    Y_final[3] = Y_initial[3] + this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
+    Y_final[4] = Y_initial[4] + 
+        this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_H2O)
+        *subdt/cell_rho;
+    Y_final[5] = Y_initial[5] + this->MW_["H"]*(r_oxidation_OH)*subdt/cell_rho;
+    Y_final[6] = Y_initial[6] + this->MW_["CO2"]*(r_oxidation_O2 - r_gasification_CO2)*subdt/cell_rho;
+    Y_final[7] = Y_initial[7] - this->MW_["H2O"]*(r_gasification_H2O)*subdt/cell_rho;
 
     // Soot Stuff
-
-    const scalar massSOOT(Y_initial[8]*cell_rho);
-
-    // total rate of soot consumption for conveneince
     scalar r_soot_consumption = r_oxidation_O2 + r_oxidation_OH + r_gasification_CO2
         + r_gasification_H2O;
-
-    // Take explicit Euler step
-    scalar massSootFinal = massSOOT + this->MW_["SOOT"] *
-        (2*r_growth  - r_soot_consumption) * subdt;
-
-    // convert back to mass fraction
-    Y_final[8] = massSootFinal/cell_rho;
-    
-    // Need to divide by rho because this rate is for d(N*rho)/dt
-    // and we only want to evolve N
+    Y_final[8] = Y_initial[8] + this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
     Y_final[9] = Y_initial[9] - (1.0/cell_rho) * r_agglomeration * subdt;
-
 
 }// end AdvanceFrozenspecies
 
@@ -372,6 +330,9 @@ void Foam::EulerImplicitSystem::exhaustLowSpecie
 void Foam::EulerImplicitSystem::correctQdot()
 {
 
+    // Reset from last time
+    this->Qdot_ = 0.0;
+
     // loop through the species sources that have 
     // been updated 
 
@@ -413,9 +374,6 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::Qdot()
         );
 
         tQdot.ref().primitiveFieldRef() = this->Qdot_;
-            
-        // Reset for next time
-        this->Qdot_ = 0.0;
 
         return tQdot;
 }
@@ -471,8 +429,8 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
     {
         sourceY.primitiveFieldRef() = this->speciesSources[specieName];
         
-        Info << "Getting source for : " << specieName << 
-            " Max value is: " << max(cmptMag(speciesSources[specieName])) << endl;
+        // Info << "Getting source for : " << specieName << 
+        //     " Max value is: " << max(cmptMag(speciesSources[specieName])) << endl;
         
         // reset field to zero in preparation for next time step.
         this->speciesSources[specieName] = 0.0;
@@ -618,11 +576,12 @@ void Foam::EulerImplicitSystem::updateSources
 	   Y_final[8] > 1.0
 	   )
 	  {
+              Info << "After sources:\n"  << endl;
 	    Info << "\nCell number: " << cellNumber << endl;
 	    Info << "Y_initial: \n " << Y_initial << endl;
-	    Info << "Y_final: \n " << Y_final << endl;
+	    Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
 			
-	    FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
+	    //FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
 	  }
 
         if (min(Y_final) < 0.0)
@@ -650,7 +609,6 @@ void Foam::EulerImplicitSystem::updateSources
         //  equations are d(rho*Y)/dt not just d(Y)/dt
         // and rho is constant over this step
 
-
         // Reactant species 
         this->speciesSources["C2H2"][cellNumber] = 
             (Y_final[0] - Y_initial[0])*cellRho/dt;
@@ -671,16 +629,26 @@ void Foam::EulerImplicitSystem::updateSources
         this->speciesSources["CO2"][cellNumber] = 
             (Y_final[6] - Y_initial[6])*cellRho/dt;
 
+        // if (cmptMag(speciesSources["CO2"][cellNumber]) >= 2.63e-13)
+        // {
+        //     Info << "\nBad cell mass fractions: \n"<< 
+        //         "Initial: \n" << Y_initial << endl  <<
+        //         "Final: \n" << Y_final << endl << 
+        //         "Change: \n" << Y_final - Y_initial << endl;   
+        // }
+
     }// end loop through cells
 
-    forAllIter(HashTable<scalarField>, speciesSources, iter_)
-    {
-        word specieName(iter_.key());
 
-        Info << specieName << " max(Source): " <<
-            max(cmptMag(iter_())) << endl;
+
+    // forAllIter(HashTable<scalarField>, speciesSources, iter_)
+    // {
+    //     word specieName(iter_.key());
+
+    //     Info << specieName << " max(Source): " <<
+    //         max(cmptMag(iter_())) << endl;
         
-    }
+    // }
     
     // based on the updated species sources calculate the enthalpy source
     this->correctQdot();

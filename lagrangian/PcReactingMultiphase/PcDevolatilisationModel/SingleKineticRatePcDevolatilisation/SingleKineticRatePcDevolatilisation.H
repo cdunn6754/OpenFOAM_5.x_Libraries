@@ -56,7 +56,7 @@ Description
       as dMassDV so dMassDV + dMassSP makes sense). dMassSP is returned by 
       the main calculate function in this class as well.
     - In the outer function (calc() in PcReactingMultiphaseParcel.C) the tar
-      in dMassDV is left untill the parcel mass fractions have updated =>
+      in dMassDV is left until the parcel mass fractions have updated =>
       the tar fraction of the particle is update appropriately. BUT ! the tar 
       is then removed and replaced with its breakdown products stored in dMassSP
       before the source terms to the gas phase are calculated => No TAR is actually
