@@ -168,7 +168,6 @@ void Foam::EulerImplicitSystem::ratesOfChange
         Foam::sqrt((6.0 * this->sigma * cell_T)/(this->rho_s)) * 
         Foam::sqr(cell_rho * cell_Ns);
 
-    // DEBUG
     scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
     const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
     scalar r_Kron_OH = 0.36 * Foam::sqrt(cell_T) * cell_As * C_oh; // [kmol/(m^3*s)]
@@ -180,16 +179,6 @@ void Foam::EulerImplicitSystem::ratesOfChange
     rGasCO2_[cellState_.cellNumber()] = r_gasification_CO2;
     rAgg_[cellState_.cellNumber()] = r_agglomeration;
     rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
-
-    // if (cellState_.cellNumber() == 235)
-    // {
-    //     Info << "Rates: \n"  <<
-    //         r_growth << "\n" <<
-    //         r_oxidation_O2 << "\n" <<
-    //         r_oxidation_OH << "\n" <<
-    //         r_gasification_H2O << "\n" <<
-    //         r_gasification_CO2 << "\n" << endl;
-    // }
 
     r_gasification_CO2 = 0.0;
     r_gasification_H2O = 0.0;
@@ -220,7 +209,6 @@ void Foam::EulerImplicitSystem::explicitStep
     this->ratesOfChange(r_growth, r_oxidation_O2,r_oxidation_OH, 
     r_gasification_H2O, r_gasification_CO2, r_agglomeration);
 
-    
     // Explicit step for the Mass Fractions
     Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
     Y_final[1] = Y_initial[1] - this->MW_["O2"]*(r_oxidation_O2)*subdt/cell_rho;
@@ -642,7 +630,7 @@ void Foam::EulerImplicitSystem::updateSources
         this->speciesSources["CO2"][cellNumber] = 
             (Y_final[6] - Y_initial[6])*cellRho/dt;
 
-        // if (cmptMag(speciesSources["CO2"][cellNumber]) >= 2.63e-13)
+        // if (cmptMag(speciesSources["H2O"][cellNumber]) > 0.0)
         // {
         //     Info << "\nBad cell mass fractions: \n"<< 
         //         "Initial: \n" << Y_initial << endl  <<
