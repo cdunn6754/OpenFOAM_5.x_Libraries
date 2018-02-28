@@ -50,7 +50,7 @@ SourceFiles
 #define greyMeanSootAbsorptionEmission_H
 
 #include "absorptionEmissionModel.H"
-#include "solidThermo.H"
+#include "psiThermo.H"
 #include "basicSpecieMixture.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -84,7 +84,7 @@ private:
         dictionary coeffsDict_;
 
         //- SLG thermo package
-        const solidThermo& thermo_;
+        const psiThermo& thermo_;
 
         //- Hash table of species names
         HashTable<label> speciesNames_;

@@ -91,7 +91,7 @@ greyMeanSootAbsorptionEmission
 :
     absorptionEmissionModel(dict, mesh),
     coeffsDict_((dict.optionalSubDict(typeName + "Coeffs"))),
-    thermo_(mesh.lookupObject<solidThermo>(basicThermo::dictName)),
+    thermo_(mesh.lookupObject<psiThermo>(basicThermo::dictName)),
     speciesNames_(0),
     mixture_(dynamic_cast<const basicSpecieMixture&>(thermo_)),
     solidData_(mixture_.Y().size())
@@ -163,12 +163,13 @@ calc(const label propertyId) const
     );
 
     scalarField& a = ta.ref().primitiveFieldRef();
+    const volScalarField& T = thermo_.T();
 
     forAllConstIter(HashTable<label>, speciesNames_, iter)
     {
         if (mixture_.contains(iter.key()))
         {
-            a += solidData_[iter()][propertyId]*X(iter.key());
+            a += solidData_[iter()][propertyId]*X(iter.key())*T;
         }
     }
 
