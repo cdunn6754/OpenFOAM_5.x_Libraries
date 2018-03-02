@@ -28,11 +28,17 @@ Description
     greyMeanSootAbsorptionEmission radiation absorption and emission
     coefficients for continuous phase
 
-    The coefficients for the species in the Look up table have to be specified
-    for use in moles x P [atm], i.e. (k[i] = species[i]*p*9.869231e-6).
+    The coefficients given in the dictionary will be used in the form,
+    for e.g. absorptivity coefficient a_c
+    
+    a = a_c * f_v * T_cell 
+    
+    where f_v is the volume fraction.
 
-    The coefficients for CO and soot or any other added are multiplied by the
-    respective mass fraction being solved
+    In the case of gas phase soot while using a two equation model it is desirable/
+    necessary to use a provided density rather than the JANAF determined continous 
+    density to calculate the volume fraction. I am adding the density as the third 
+    field in solidData_.
 
     All the species in the dictionary need either to be in the look-up table or
     being solved. Conversely, all the species solved do not need to be included
@@ -77,7 +83,8 @@ private:
         enum radiativeProperties
         {
             absorptivity,
-            emissivity
+            emissivity,
+            density
         };
 
         //- Absorption model dictionary
@@ -93,7 +100,7 @@ private:
         const basicSpecieMixture& mixture_;
 
         //- List of solid species data
-        List<FixedList<scalar, 2>> solidData_;
+        List<FixedList<scalar, 3>> solidData_;
 
 
     // Private member functions

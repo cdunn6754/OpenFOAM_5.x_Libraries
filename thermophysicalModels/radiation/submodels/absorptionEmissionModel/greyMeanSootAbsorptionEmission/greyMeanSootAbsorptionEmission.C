@@ -54,6 +54,9 @@ greyMeanSootAbsorptionEmission::X(const word specie) const
     const volScalarField& T = thermo_.T(); 
     const volScalarField& p = thermo_.p();
 
+    // Density used later
+    scalar specieRho(0.0);
+
     tmp<scalarField> tXj(new scalarField(T.primitiveField().size(), 0.0));
     scalarField& Xj = tXj.ref();
 
@@ -63,20 +66,38 @@ greyMeanSootAbsorptionEmission::X(const word specie) const
     forAll(mixture_.Y(), specieI)
     {
         const scalarField& Yi = mixture_.Y()[specieI];
+        const word specieName = mixture_.Y()[specieI].name();
 
-        forAll(rhoInv, iCell)
+        // If this is a specie in this dictionary
+        // we want to use the density specified there
+        // to calculate rhoInv.
+        if (this->speciesNames_.found(specieName))
         {
-            rhoInv[iCell] +=
-                Yi[iCell]/mixture_.rho(specieI, p[iCell], T[iCell]);
+            specieRho = this->solidData_[speciesNames_[specieName]][density];
+
+            forAll(rhoInv, iCell)
+            {
+                rhoInv[iCell] +=
+                    Yi[iCell]/specieRho;
+            }
+        }
+        else // Just use the IGL to find density.
+        {
+            forAll(rhoInv, iCell)
+            {
+                rhoInv[iCell] +=
+                    Yi[iCell]/mixture_.rho(specieI, p[iCell], T[iCell]);
+            }   
         }
     }
     const scalarField& Yj = mixture_.Y(specie);
-    const label mySpecieI = mixture_.species()[specie];
+    // Again use the density from the dictionary. 
+    const scalar mySpecieRho = this->solidData_[speciesNames_[specie]][density];
+
     forAll(Xj, iCell)
     {
-        Xj[iCell] = Yj[iCell]/mixture_.rho(mySpecieI, p[iCell], T[iCell]);
+        Xj[iCell] = Yj[iCell]/mySpecieRho;
     }
-
     return (Xj/rhoInv);
 }
 
@@ -126,6 +147,7 @@ greyMeanSootAbsorptionEmission
         const dictionary& dict = iter().dict();
         dict.lookup("absorptivity") >> solidData_[nFunc][absorptivity];
         dict.lookup("emissivity") >> solidData_[nFunc][emissivity];
+        dict.lookup("density") >> solidData_[nFunc][density];
 
         nFunc++;
     }
