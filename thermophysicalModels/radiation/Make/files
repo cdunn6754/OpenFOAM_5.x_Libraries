@@ -1,0 +1,6 @@
+/* Absorption Emission Sub-Models */
+submodels/absorptionEmissionModel/ternaryAbsorptionEmission/ternaryAbsorptionEmission.C \
+submodels/absorptionEmissionModel/greyMeanSootAbsorptionEmission/greyMeanSootAbsorptionEmission.C
+
+
+LIB = $(FOAM_USER_LIBBIN)/libsootRadiationModels
