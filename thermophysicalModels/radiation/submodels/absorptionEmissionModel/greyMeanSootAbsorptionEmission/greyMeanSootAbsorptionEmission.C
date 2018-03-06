@@ -94,10 +94,12 @@ greyMeanSootAbsorptionEmission::X(const word specie) const
     // Again use the density from the dictionary. 
     const scalar mySpecieRho = this->solidData_[speciesNames_[specie]][density];
 
-    forAll(Xj, iCell)
-    {
-        Xj[iCell] = Yj[iCell]/mySpecieRho;
-    }
+    // forAll(Xj, iCell)
+    // {
+    //     Xj[iCell] = Yj[iCell]/mySpecieRho;
+    // }
+
+    Xj = Yj/mySpecieRho;
     return (Xj/rhoInv);
 }
 
