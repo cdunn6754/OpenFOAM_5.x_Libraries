@@ -432,8 +432,6 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
     {
         sourceY.primitiveFieldRef() = this->speciesSources[specieName];
         
-        // Info << "Getting source for : " << specieName << 
-        //     " Max value is: " << max(cmptMag(speciesSources[specieName])) << endl;
         
         // reset field to zero in preparation for next time step.
         this->speciesSources[specieName] = 0.0;
@@ -479,7 +477,6 @@ void Foam::EulerImplicitSystem::updateSources
     // Loop through cells
     forAll(this->thermo_.rho().ref(), cellNumber)
       {   
-	// Info << "cellNumber: " << cellNumber << endl;
        
         // set default initial sub time step for this cell
         scalar subdt = dt/nSubSteps;
@@ -500,16 +497,6 @@ void Foam::EulerImplicitSystem::updateSources
         Y_current[8] = this->cellState_.Ysoot();
         Y_current[9] = this->cellState_.Nsoot();
 
-        // if (cellNumber == 966)
-        // {
-        //     Info << "Thermo Properties: \n" << 
-        //         cellState_.thermoProperties() << endl;
-        //     Info << "Mass fractions: \n" << 
-        //         cellState_.frozenSpecieMassFractions() <<
-        //         "\nSOOT:" << cellState_.Ysoot() <<
-        //     "\nNs:" << cellState_.Nsoot() << endl;
-        //     Info << "Mixture MM: " << composition_.W().ref()[cellNumber] << endl;
-        // }
 
         // Store a constant version of these initial mass fractions
         const scalarField Y_initial(Y_current);
@@ -577,17 +564,19 @@ void Foam::EulerImplicitSystem::updateSources
 	   Y_final[8] > 1.0
 	   )
 	  {
+              Info << "Mass Fraction Greater than one" << endl;
               Info << "After sources:\n"  << endl;
-	    Info << "\nCell number: " << cellNumber << endl;
-	    Info << "Y_initial: \n " << Y_initial << endl;
-	    Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
+              Info << "\nCell number: " << cellNumber << endl;
+              Info << "Y_initial: \n " << Y_initial << endl;
+              Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
 			
 	    //FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
 	  }
 
         if (min(Y_final) < 0.0)
         {
-            FatalErrorInFunction << "Negatives" << abort(FatalError);
+            FatalErrorInFunction << "Negative mass fraction after soot model integration"
+                << abort(FatalError);
         }
 
         // Now set the source terms given the changes in soot mass fraction,

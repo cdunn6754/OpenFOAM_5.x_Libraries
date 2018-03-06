@@ -40,7 +40,7 @@ SingleKineticRatePcDevolatilisation
     YVolatile0_(volatileData_.size()),
     volatileToGasMap_(volatileData_.size()),
     residualCoeff_(readScalar(this->coeffDict().lookup("residualCoeff"))),
-    Ydaf0_(1.0)
+    Ydaf0_(0.0)
 {
     if (volatileData_.empty())
     {
@@ -72,10 +72,13 @@ SingleKineticRatePcDevolatilisation
 	const label idLiquid = owner.composition().idLiquid();
 	const scalarField& YSolid0 = owner.composition().Y0(idSolid);
 	const scalarField& YLiquid0 = owner.composition().Y0(idLiquid);
+        // Initial fraction within solid/liquid that is ash/H2O
 	const label ashId = owner.composition().localId(idSolid, "ash");
 	const label waterId = owner.composition().localId(idLiquid, "H2O");
+        // Initial fraction of mass that is solid/liquid
 	const scalar YSolidTot = owner.composition().YMixture0()[idSolid];
 	const scalar YLiquidTot = owner.composition().YMixture0()[idLiquid];
+        // Multiply them together
 	const scalar Yash = YSolidTot * YSolid0[ashId];
 	const scalar Ywater = YLiquidTot * YLiquid0[waterId];
 	Ydaf0_ = 1.0 - Yash - Ywater;
@@ -96,8 +99,10 @@ SingleKineticRatePcDevolatilisation
     volatileData_(dm.volatileData_),
     YVolatile0_(dm.YVolatile0_),
     volatileToGasMap_(dm.volatileToGasMap_),
-    residualCoeff_(dm.residualCoeff_)
-{}
+    residualCoeff_(dm.residualCoeff_),
+    Ydaf0_(dm.Ydaf0_)
+{
+}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -129,6 +134,8 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 {
     bool done = true;
 
+    //Info << "\ndt in Devolailization model: " << dt << endl;
+
     // Initial daf mass of particle
     const scalar dafMass0 = Ydaf0_ * mass0;
 
@@ -149,7 +156,7 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 	// For the PC coal lab devol rate laws we need daf based
 	// YdafVolatile0, as opposed to the YVolatile0 we already have.
 	const scalar YdafVolatile0 = (YVolatile0_[i]/Ydaf0_);
-
+        
 	// YdafDevoled is the mass fraction of current specie mass lost
 	// compared to the initial daf mass (dafMass0)
 	// YdafDevoled starts at 0.0 and approaches YdafVolatile0

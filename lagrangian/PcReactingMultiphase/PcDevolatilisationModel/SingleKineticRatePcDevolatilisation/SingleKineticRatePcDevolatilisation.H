@@ -308,7 +308,7 @@ class SingleKineticRatePcDevolatilisation
   // the particles so Ydaf0 is the initial 
   // mass fraction of the particle that is daf
   // it is assumed that these fractions are the same for all particles
-  scalar Ydaf0_;
+    scalar Ydaf0_;
 
 
 public:
