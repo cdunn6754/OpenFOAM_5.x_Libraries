@@ -190,8 +190,7 @@ void Foam::EulerImplicitSystem::explicitStep
     const scalarField& Y_initial,
     scalarField& Y_final,
     const label cellNumber,
-    const scalar subdt,
-    const bool advanceProductSpecies
+    const scalar subdt
 )
 {
     // density in this cell
@@ -213,18 +212,21 @@ void Foam::EulerImplicitSystem::explicitStep
     Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
     Y_final[1] = Y_initial[1] - this->MW_["O2"]*(r_oxidation_O2)*subdt/cell_rho;
     Y_final[2] = Y_initial[2] - this->MW_["OH"]*(r_oxidation_OH)*subdt/cell_rho;
-    Y_final[3] = Y_initial[3] + this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
+    Y_final[3] = Y_initial[3] + 
+        this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
     Y_final[4] = Y_initial[4] + 
         this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_H2O)
         *subdt/cell_rho;
     Y_final[5] = Y_initial[5] + this->MW_["H"]*(r_oxidation_OH)*subdt/cell_rho;
-    Y_final[6] = Y_initial[6] + this->MW_["CO2"]*(r_oxidation_O2 - r_gasification_CO2)*subdt/cell_rho;
+    Y_final[6] = Y_initial[6] + 
+        this->MW_["CO2"]*(r_oxidation_O2 - r_gasification_CO2)*subdt/cell_rho;
     Y_final[7] = Y_initial[7] - this->MW_["H2O"]*(r_gasification_H2O)*subdt/cell_rho;
 
-    // Soot Stuff
+    // Soot Stuff (mass fraction and particle number density)
     scalar r_soot_consumption = r_oxidation_O2 + r_oxidation_OH + r_gasification_CO2
         + r_gasification_H2O;
-    Y_final[8] = Y_initial[8] + this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
+    Y_final[8] = Y_initial[8] + 
+        this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
     Y_final[9] = Y_initial[9] - (1.0/cell_rho) * r_agglomeration * subdt;
 
 }// end AdvanceFrozenspecies
@@ -341,7 +343,8 @@ void Foam::EulerImplicitSystem::calcSpecieSources
 (
     const scalar dt,
     const label nSubSteps,
-    const List<word> frozenSpecieNames
+    const List<word> frozenSpecieNames,
+    const label cellNumber
 )
 {
 
@@ -351,155 +354,150 @@ void Foam::EulerImplicitSystem::calcSpecieSources
     // at the end of the sub time step
     scalarField Y_final(Y_current.size(), 0.0);
 
-    // Loop through cells
-    forAll(this->thermo_.rho().ref(), cellNumber)
-      {   
        
-        // set default initial sub time step for this cell
-        scalar subdt = dt/nSubSteps;
+    // set default initial sub time step for this cell
+    scalar subdt = dt/nSubSteps;
 
-        // Grab the current field data for this cell
-        // this will update the cellState thermo data too
-        this->cellState_.updateCellState(cellNumber);
+    // Grab the current field data for this cell
+    // this will update the cellState thermo data too
+    this->cellState_.updateCellState(cellNumber);
         
-        // Local storage of frozen specie mass fractions.
-        Y_current[0] = this->cellState_.frozenSpecieMassFractions()["C2H2"];
-        Y_current[1] = this->cellState_.frozenSpecieMassFractions()["O2"];
-        Y_current[2] = this->cellState_.frozenSpecieMassFractions()["OH"];
-        Y_current[3] = this->cellState_.frozenSpecieMassFractions()["H2"];
-        Y_current[4] = this->cellState_.frozenSpecieMassFractions()["CO"];
-        Y_current[5] = this->cellState_.frozenSpecieMassFractions()["H"];
-        Y_current[6] = this->cellState_.frozenSpecieMassFractions()["CO2"];
-        Y_current[7] = this->cellState_.frozenSpecieMassFractions()["H2O"];
-        Y_current[8] = this->cellState_.Ysoot();
-        Y_current[9] = this->cellState_.Nsoot();
+    // Local storage of frozen specie mass fractions.
+    Y_current[0] = this->cellState_.frozenSpecieMassFractions()["C2H2"];
+    Y_current[1] = this->cellState_.frozenSpecieMassFractions()["O2"];
+    Y_current[2] = this->cellState_.frozenSpecieMassFractions()["OH"];
+    Y_current[3] = this->cellState_.frozenSpecieMassFractions()["H2"];
+    Y_current[4] = this->cellState_.frozenSpecieMassFractions()["CO"];
+    Y_current[5] = this->cellState_.frozenSpecieMassFractions()["H"];
+    Y_current[6] = this->cellState_.frozenSpecieMassFractions()["CO2"];
+    Y_current[7] = this->cellState_.frozenSpecieMassFractions()["H2O"];
+    Y_current[8] = this->cellState_.Ysoot();
+    Y_current[9] = this->cellState_.Nsoot();
 
 
-        // Store a constant version of these initial mass fractions
-        const scalarField Y_initial(Y_current);
-        Y_final = Y_initial;
+    // Store a constant version of these initial mass fractions
+    const scalarField Y_initial(Y_current);
+    Y_final = Y_initial;
 
-        // Time that integration has progressed in this cell
-        scalar integratedTime(0.0);
-        scalar smallTimeStep(0.0);
-        while(integratedTime < dt)
-        {
-            // Advance, explicitly, local cell copy of species an Ns
-            this->explicitStep(Y_current, Y_final, cellNumber, subdt, true);
+    // Time that integration has progressed in this cell
+    scalar integratedTime(0.0);
+    scalar smallTimeStep(0.0);
+    while(integratedTime < dt)
+    {
+        // Advance, explicitly, local cell copy of species an Ns
+        this->explicitStep(Y_current, Y_final, cellNumber, subdt);
 
-            // It's possible that the explicit step may be too long 
-            // and we exhaust the supply of a reactant specie
-            if (min(Y_final) < 0.0)
-            {
-                // Integrates only until the first specie to reach zero does 
-                // so. Then calculates how much time that would take, that is
-                // 'smallTimeStep'. Y_final is the whole specie list evolved
-                // from Y_current state over time step smalltimeStep
-                this->exhaustLowSpecie(subdt, smallTimeStep,
-                Y_current, Y_final);
-                
-                // Record the small time integration
-                integratedTime += smallTimeStep;
-                // Set subdt for the next time step
-                subdt = subdt - smallTimeStep;
-            }
-            else
-            {
-                // If there was not problem with negative mass fractions
-                // record the time step time taken
-                // and then make sure subdt is set back to the default.
-                integratedTime += subdt;
-                subdt = dt/nSubSteps;
-            }
-
-            // Update both the soot variables and the frozen species for
-            // the next iteration
-            Y_current = Y_final;
-
-            // before the rates are recalculated on the next iteration update the
-            // cell state but only frozen species and soot mass fractions,
-            // and soot particle number density. 
-            //The thermo/cell volume shouldn't be changing anyway.
-            cellState_.updateCellState(Y_current, frozenSpecieNames, 
-            Y_current[8], Y_current[9]);
-
-        } // end while (integratedTime < dt)
-
-        // density in this cell (assumed constant over these steps)
-        const scalar cellRho = this->cellState_.thermoProperties()["rho"];
-
-	if 
-	  (
-	   Y_final[0] > 1.0 ||
-	   Y_final[1] > 1.0 ||
-	   Y_final[2] > 1.0 ||
-	   Y_final[3] > 1.0 ||
-	   Y_final[4] > 1.0 ||
-	   Y_final[5] > 1.0 ||
-	   Y_final[6] > 1.0 ||
-	   Y_final[7] > 1.0 ||
-	   Y_final[8] > 1.0
-	   )
-	  {
-              Info << "Mass Fraction Greater than one" << endl;
-              Info << "After sources:\n"  << endl;
-              Info << "\nCell number: " << cellNumber << endl;
-              Info << "Y_initial: \n " << Y_initial << endl;
-              Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
-			
-	    //FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
-	  }
-
+        // It's possible that the explicit step may be too long 
+        // and we exhaust the supply of a reactant specie
         if (min(Y_final) < 0.0)
         {
-            FatalErrorInFunction 
-                << "Negative mass fraction after soot model integration"
-                << abort(FatalError);
+            // Integrates only until the first specie to reach zero does 
+            // so. Then calculates how much time that would take, that is
+            // 'smallTimeStep'. Y_final is the whole specie list evolved
+            // from Y_current state over time step smalltimeStep
+            this->exhaustLowSpecie(subdt, smallTimeStep,
+            Y_current, Y_final);
+                
+            // Record the small time integration
+            integratedTime += smallTimeStep;
+            // Set subdt for the next time step
+            subdt = subdt - smallTimeStep;
+        }
+        else
+        {
+            // If there was not problem with negative mass fractions
+            // record the time step time taken
+            // and then make sure subdt is set back to the default.
+            integratedTime += subdt;
+            subdt = dt/nSubSteps;
         }
 
-        // Now set the source terms given the changes in soot mass fraction,
-        // frozen specie mass fraction  and soot number density. These 
-        // source terms will be used when the respective transport
-        // equations are solved
-        // NOTE: Multiply by density because the transport
-        //  equations are d(rho*Y)/dt not just d(Y)/dt, 
-        //  we take rho to be constant here so just pull it out.
+        // Update both the soot variables and the frozen species for
+        // the next iteration
+        Y_current = Y_final;
 
-        // Soot number density
-        this->N_source[cellNumber] = 
-	  (Y_final[9] - Y_initial[9])*cellRho/dt;
-        // Soot mass fraction
-        this->speciesSources["SOOT"][cellNumber] = 
-            (Y_final[8] - Y_initial[8])*cellRho/dt;
+        // before the rates are recalculated on the next iteration update the
+        // cell state but only frozen species and soot mass fractions,
+        // and soot particle number density. 
+        //The thermo/cell volume shouldn't be changing anyway.
+        cellState_.updateCellState(Y_current, frozenSpecieNames, 
+        Y_current[8], Y_current[9]);
 
-        // //  Other species
-        // NOTE: Multiply by density because the transport
-        //  equations are d(rho*Y)/dt not just d(Y)/dt
-        // and rho is constant over this step
+    } // end while (integratedTime < dt)
 
-        // Reactant species 
-        this->speciesSources["C2H2"][cellNumber] = 
-            (Y_final[0] - Y_initial[0])*cellRho/dt;
-        this->speciesSources["O2"][cellNumber] = 
-            (Y_final[1] - Y_initial[1])*cellRho/dt;
-        this->speciesSources["OH"][cellNumber] = 
-            (Y_final[2] - Y_initial[2])*cellRho/dt;
-        this->speciesSources["H2O"][cellNumber] = 
-            (Y_final[7] - Y_initial[7])*cellRho/dt;
-        // Product species
-        this->speciesSources["H2"][cellNumber] = 
-            (Y_final[3] - Y_initial[3])*cellRho/dt;
-        this->speciesSources["CO"][cellNumber] = 
-            (Y_final[4] - Y_initial[4])*cellRho/dt;
-        this->speciesSources["H"][cellNumber] = 
-            (Y_final[5] - Y_initial[5])*cellRho/dt;
-	// Both a product and a reactant
-        this->speciesSources["CO2"][cellNumber] = 
-            (Y_final[6] - Y_initial[6])*cellRho/dt;
+    // density in this cell (assumed constant over these steps)
+    const scalar cellRho = this->cellState_.thermoProperties()["rho"];
 
+    if 
+        (
+            Y_final[0] > 1.0 ||
+            Y_final[1] > 1.0 ||
+            Y_final[2] > 1.0 ||
+            Y_final[3] > 1.0 ||
+            Y_final[4] > 1.0 ||
+            Y_final[5] > 1.0 ||
+            Y_final[6] > 1.0 ||
+            Y_final[7] > 1.0 ||
+            Y_final[8] > 1.0
+        )
+    {
+        Info << "Mass Fraction Greater than one" << endl;
+        Info << "After sources:\n"  << endl;
+        Info << "\nCell number: " << cellNumber << endl;
+        Info << "Y_initial: \n " << Y_initial << endl;
+        Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
+			
+        //FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
+    }
 
-    }// end loop through cells
-}
+    if (min(Y_final) < 0.0)
+    {
+        FatalErrorInFunction 
+            << "Negative mass fraction after soot model integration"
+                << abort(FatalError);
+    }
+
+    // Now set the source terms given the changes in soot mass fraction,
+    // frozen specie mass fraction  and soot number density. These 
+    // source terms will be used when the respective transport
+    // equations are solved
+    // NOTE: Multiply by density because the transport
+    //  equations are d(rho*Y)/dt not just d(Y)/dt, 
+    //  we take rho to be constant here so just pull it out.
+
+    // Soot number density
+    this->N_source[cellNumber] = 
+        (Y_final[9] - Y_initial[9])*cellRho/dt;
+    // Soot mass fraction
+    this->speciesSources["SOOT"][cellNumber] = 
+        (Y_final[8] - Y_initial[8])*cellRho/dt;
+
+    // //  Other species
+    // NOTE: Multiply by density because the transport
+    //  equations are d(rho*Y)/dt not just d(Y)/dt
+    // and rho is constant over this step
+
+    // Reactant species 
+    this->speciesSources["C2H2"][cellNumber] = 
+        (Y_final[0] - Y_initial[0])*cellRho/dt;
+    this->speciesSources["O2"][cellNumber] = 
+        (Y_final[1] - Y_initial[1])*cellRho/dt;
+    this->speciesSources["OH"][cellNumber] = 
+        (Y_final[2] - Y_initial[2])*cellRho/dt;
+    this->speciesSources["H2O"][cellNumber] = 
+        (Y_final[7] - Y_initial[7])*cellRho/dt;
+    // Product species
+    this->speciesSources["H2"][cellNumber] = 
+        (Y_final[3] - Y_initial[3])*cellRho/dt;
+    this->speciesSources["CO"][cellNumber] = 
+        (Y_final[4] - Y_initial[4])*cellRho/dt;
+    this->speciesSources["H"][cellNumber] = 
+        (Y_final[5] - Y_initial[5])*cellRho/dt;
+    // Both a product and a reactant
+    this->speciesSources["CO2"][cellNumber] = 
+        (Y_final[6] - Y_initial[6])*cellRho/dt;
+
+}// End calcSpecieSources
 
 
 //****************** Public member functions ********************//
@@ -610,23 +608,17 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
  
 
 // Main function for calculating the sources.
-// Manages substeps of the main time step dt
+// Used in transient non-LTS solvers with same dt for 
+// all cells
 void Foam::EulerImplicitSystem::updateSources
 (
-    const scalar dt,
     const label nSubSteps
 )
 {  
-
     // Update the fields stored in cellState to new time
-    // At this point the main issue is the mixture molar mass
+    // At this point all it does is recalculate mixture
+    // molar mass field
     this->cellState_.updateCellStateFields(); 
-
-    // // Local storage for mass fractions of species and soot variables
-    // scalarField Y_current(10,0.0);
-    // // Create another field for storage of Mass Fractions/Ns
-    // // at the end of the sub time step
-    // scalarField Y_final(Y_current.size(), 0.0);
     
     // Index the species list with the names of the species
     List<word> frozenSpecieNames(8,"none");
@@ -639,162 +631,43 @@ void Foam::EulerImplicitSystem::updateSources
     frozenSpecieNames[6] = word("CO2");
     frozenSpecieNames[7] = word("H2O");
 
-    calcSpecieSources(dt, nSubSteps, frozenSpecieNames);
+    // Calculate and set the species sources into this->speciesSources table.
+    // If statement to decide if LTS or transient.
+    // In either case get the time step/steps and iterate through cells
+    if (fv::localEulerDdt::enabled(this->mesh_))
+    {
+        Info << "Operating soot model in LTS mode" << endl;
+        // get the LTS timsteps
+        const scalarField& dt = fv::localEulerDdt::localRDeltaT(this->mesh_);
+        forAll(this->mesh_.C(), cellNumber)
+        {
+            this->calcSpecieSources(1.0/dt[cellNumber], nSubSteps, 
+            frozenSpecieNames, cellNumber);
+        }
+    }
+    // if single time step (i.e. transient simulation)
+    else if (! fv::localEulerDdt::enabled(this->mesh_))
+    {
+        Info << "Operating soot model in transient mode" << endl;
+        // get global time step
+        const scalar& dt = this->mesh_.time().deltaTValue();
+        forAll(this->mesh_.C(), cellNumber)
+        {
+            this->calcSpecieSources(dt, nSubSteps, 
+            frozenSpecieNames, cellNumber);
+        }
+    }
+    else
+    {
+        // I'm not really sure what the localEulerDdt::enabled() is capable of 
+        // returning.
+        FatalErrorInFunction << "Not LTS or Transient" << abort(FatalError); 
+    }
 
-    // // Loop through cells
-    // forAll(this->thermo_.rho().ref(), cellNumber)
-    //   {   
-       
-    //     // set default initial sub time step for this cell
-    //     scalar subdt = dt/nSubSteps;
-
-    //     // Grab the current field data for this cell
-    //     // this will update the cellState thermo data too
-    //     this->cellState_.updateCellState(cellNumber);
-        
-    //     // Local storage of frozen specie mass fractions.
-    //     Y_current[0] = this->cellState_.frozenSpecieMassFractions()["C2H2"];
-    //     Y_current[1] = this->cellState_.frozenSpecieMassFractions()["O2"];
-    //     Y_current[2] = this->cellState_.frozenSpecieMassFractions()["OH"];
-    //     Y_current[3] = this->cellState_.frozenSpecieMassFractions()["H2"];
-    //     Y_current[4] = this->cellState_.frozenSpecieMassFractions()["CO"];
-    //     Y_current[5] = this->cellState_.frozenSpecieMassFractions()["H"];
-    //     Y_current[6] = this->cellState_.frozenSpecieMassFractions()["CO2"];
-    //     Y_current[7] = this->cellState_.frozenSpecieMassFractions()["H2O"];
-    //     Y_current[8] = this->cellState_.Ysoot();
-    //     Y_current[9] = this->cellState_.Nsoot();
-
-
-    //     // Store a constant version of these initial mass fractions
-    //     const scalarField Y_initial(Y_current);
-    //     Y_final = Y_initial;
-
-    //     // Time that integration has progressed in this cell
-    //     scalar integratedTime(0.0);
-    //     scalar smallTimeStep(0.0);
-    //     while(integratedTime < dt)
-    //     {
-    //         // Advance, explicitly, local cell copy of species an Ns
-    //         this->explicitStep(Y_current, Y_final, cellNumber, subdt, true);
-
-    //         // It's possible that the explicit step may be too long 
-    //         // and we exhaust the supply of a reactant specie
-    //         if (min(Y_final) < 0.0)
-    //         {
-    //             // Integrates only until the first specie to reach zero does 
-    //             // so. Then calculates how much time that would take, that is
-    //             // 'smallTimeStep'. Y_final is the whole specie list evolved
-    //             // from Y_current state over time step smalltimeStep
-    //             this->exhaustLowSpecie(subdt, smallTimeStep,
-    //             Y_current, Y_final);
-                
-    //             // Record the small time integration
-    //             integratedTime += smallTimeStep;
-    //             // Set subdt for the next time step
-    //             subdt = subdt - smallTimeStep;
-    //         }
-    //         else
-    //         {
-    //             // If there was not problem with negative mass fractions
-    //             // record the time step time taken
-    //             // and then make sure subdt is set back to the default.
-    //             integratedTime += subdt;
-    //             subdt = dt/nSubSteps;
-    //         }
-
-    //         // Update both the soot variables and the frozen species for
-    //         // the next iteration
-    //         Y_current = Y_final;
-
-    //         // before the rates are recalculated on the next iteration update the
-    //         // cell state but only frozen species and soot mass fractions,
-    //         // and soot particle number density. 
-    //         //The thermo/cell volume shouldn't be changing anyway.
-    //         cellState_.updateCellState(Y_current, frozenSpecieNames, 
-    //         Y_current[8], Y_current[9]);
-
-    //     } // end while (integratedTime < dt)
-
-    //     // density in this cell (assumed constant over these steps)
-    //     const scalar cellRho = this->cellState_.thermoProperties()["rho"];
-
-    //     if 
-    //       (
-    //        Y_final[0] > 1.0 ||
-    //        Y_final[1] > 1.0 ||
-    //        Y_final[2] > 1.0 ||
-    //        Y_final[3] > 1.0 ||
-    //        Y_final[4] > 1.0 ||
-    //        Y_final[5] > 1.0 ||
-    //        Y_final[6] > 1.0 ||
-    //        Y_final[7] > 1.0 ||
-    //        Y_final[8] > 1.0
-    //        )
-    //       {
-    //           Info << "Mass Fraction Greater than one" << endl;
-    //           Info << "After sources:\n"  << endl;
-    //           Info << "\nCell number: " << cellNumber << endl;
-    //           Info << "Y_initial: \n " << Y_initial << endl;
-    //           Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
-			
-    //         //FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
-    //       }
-
-    //     if (min(Y_final) < 0.0)
-    //     {
-    //         FatalErrorInFunction 
-    //             << "Negative mass fraction after soot model integration"
-    //             << abort(FatalError);
-    //     }
-
-    //     // Now set the source terms given the changes in soot mass fraction,
-    //     // frozen specie mass fraction  and soot number density. These 
-    //     // source terms will be used when the respective transport
-    //     // equations are solved
-    //     // NOTE: Multiply by density because the transport
-    //     //  equations are d(rho*Y)/dt not just d(Y)/dt, 
-    //     //  we take rho to be constant here so just pull it out.
-
-    //     // Soot number density
-    //     this->N_source[cellNumber] = 
-    //       (Y_final[9] - Y_initial[9])*cellRho/dt;
-    //     // Soot mass fraction
-    //     this->speciesSources["SOOT"][cellNumber] = 
-    //         (Y_final[8] - Y_initial[8])*cellRho/dt;
-
-    //     // //  Other species
-    //     // NOTE: Multiply by density because the transport
-    //     //  equations are d(rho*Y)/dt not just d(Y)/dt
-    //     // and rho is constant over this step
-
-    //     // Reactant species 
-    //     this->speciesSources["C2H2"][cellNumber] = 
-    //         (Y_final[0] - Y_initial[0])*cellRho/dt;
-    //     this->speciesSources["O2"][cellNumber] = 
-    //         (Y_final[1] - Y_initial[1])*cellRho/dt;
-    //     this->speciesSources["OH"][cellNumber] = 
-    //         (Y_final[2] - Y_initial[2])*cellRho/dt;
-    //     this->speciesSources["H2O"][cellNumber] = 
-    //         (Y_final[7] - Y_initial[7])*cellRho/dt;
-    //     // Product species
-    //     this->speciesSources["H2"][cellNumber] = 
-    //         (Y_final[3] - Y_initial[3])*cellRho/dt;
-    //     this->speciesSources["CO"][cellNumber] = 
-    //         (Y_final[4] - Y_initial[4])*cellRho/dt;
-    //     this->speciesSources["H"][cellNumber] = 
-    //         (Y_final[5] - Y_initial[5])*cellRho/dt;
-    //     // Both a product and a reactant
-    //     this->speciesSources["CO2"][cellNumber] = 
-    //         (Y_final[6] - Y_initial[6])*cellRho/dt;
-
-
-    // }// end loop through cells
     
     // based on the updated species sources calculate the enthalpy source
     this->correctQdot();
-
-
-    Info << "\nMax soot Source: " <<  max(speciesSources["SOOT"]) << endl;
 }
+
 
 // **************** Access Functions ************************//

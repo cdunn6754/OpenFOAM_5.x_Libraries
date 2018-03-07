@@ -30,11 +30,8 @@ Description
 // TODO//
 // 1) make the Y_current, etc. scalarField into a hashtable. I think it will make it
 //    much more readable and make some other things easier.
-// 2) combine the explicit step function for soot and the frozen variables so
-//    we only need to calculate the reaction rates once per time step.
-//    maybe add them to the cellState.
 // 3) related to 2), maybe add a reation class that can hold all of the reactions
-//    and return the reation rates. That way it would be easier to change reactions
+//    and return the reaction rates. That way it would be easier to change reactions
 //    in the future maybe even at runtime.
 
 #ifndef EulerImplicitSystem_H
@@ -53,9 +50,8 @@ Description
 #include "CellState.H"
 #include "SootReactions.H"
 #include "ODESystem.H"
+#include "localEulerDdtScheme.H"
 
-#include <time.h>
-#include <stdio.h>
 
 namespace Foam
 {
@@ -107,19 +103,10 @@ class EulerImplicitSystem
     // ...........................................................//
     // // Member functions
 
-    void explicitEuler
-    (
-        const scalar subdt,
-        const scalar Ysoot_current,
-        const scalar N_current,
-        scalar& Ysoot_1,
-        scalar& N_1
-    );
-
     // Given the current thermophysical/chemical state
     // in a cell determine the reaction rates of the 
     // reactions in the soot mass fraction equation
-    // from Kronenburg(2000) and Fletcher(2017)
+    // rates from Kronenburg(2000) and Josephson(2017)
     void ratesOfChange
     (
         scalar& r_growth,
@@ -132,20 +119,20 @@ class EulerImplicitSystem
 
     // For a cell perform a single exlicit step
     // with the provided sub time step to calculate the
-    // mass fractions at the end of subdt. 
+    // mass fractions at the end of subdt (Y_final). 
     void explicitStep
     (
         const scalarField& Y_initial,
         scalarField& Y_final,
         const label cellNumber,
-        const scalar subdt,
-        const bool advanceProductSpecies = false
+        const scalar subdt
     );
 
     // In the likely event that the required explicit timestep
-    // becomes untenable just advance the problem specie to 0.0.
-    // Interpolate that change to the other species, the soot
-    // variables and find the corresponding time as well (smallSubTime)
+    // leads to negative mass fractions just advance the problem specie to 0.0.
+    // Interpolate that change to the other species and the soot
+    // variables then find the corresponding time as well (smallSubTime)
+    // This function is called by the function exhaustLowSpecie
     void advanceToZero
     (
         const scalar totalTime,
@@ -169,16 +156,19 @@ class EulerImplicitSystem
         scalarField& Y_final
     );
 
-    // Correct the Qdot based on the sources for the
-    // species equations
+    // Correct the soot model Qdot based on the sources for the
+    // species equations and thier enthalpies of formation
+    // Very much how the main combustion chemistry model does it.
     void correctQdot();
 
-    // Calculate and update specieSources for cell given time step.
+    // Calculate and update specieSources for cell given time step 
+    // and for the specified cell
     void calcSpecieSources
     (
         const scalar dt,
         const label nSubSteps,
-        const List<word> frozenSpecieNames
+        const List<word> frozenSpecieNames,
+        const label cellNumber
     );
 
 public: 
@@ -202,9 +192,9 @@ public:
 
     // Main function for calculating the sources.
     // Manages substeps of the main time step dt
+    // And decides if the simulation is LTS or not
     void updateSources
     (
-        const scalar dt,
         const label nSubSteps = 3
     );
 
