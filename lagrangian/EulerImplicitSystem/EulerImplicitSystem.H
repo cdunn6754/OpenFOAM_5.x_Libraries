@@ -91,6 +91,7 @@ class EulerImplicitSystem
 
     // Sources for the other related species
     HashTable<scalarField> speciesSources;
+    
     // Source for enthalpy equation
     scalarField Qdot_;
 
@@ -171,6 +172,14 @@ class EulerImplicitSystem
     // Correct the Qdot based on the sources for the
     // species equations
     void correctQdot();
+
+    // Calculate and update specieSources for cell given time step.
+    void calcSpecieSources
+    (
+        const scalar dt,
+        const label nSubSteps,
+        const List<word> frozenSpecieNames
+    );
 
 public: 
 
