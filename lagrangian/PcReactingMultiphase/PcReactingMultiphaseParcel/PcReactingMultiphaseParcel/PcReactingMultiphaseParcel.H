@@ -394,9 +394,8 @@ public:
             //- Return const access to the canCombust flag
             inline label canCombust() const;
 
-  // Return const access to the tarProps
-  inline const scalarField& tarProps() const;
-
+    // Return const access to the tarProps
+    inline const scalarField& tarProps() const;
 
         // Edit
 

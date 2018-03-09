@@ -179,9 +179,6 @@ void Foam::EulerImplicitSystem::ratesOfChange
     rGasCO2_[cellState_.cellNumber()] = r_gasification_CO2;
     rAgg_[cellState_.cellNumber()] = r_agglomeration;
     rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
-
-    r_gasification_CO2 = 0.0;
-    r_gasification_H2O = 0.0;
     
 } //end ratesOfChange
 
@@ -323,8 +320,8 @@ void Foam::EulerImplicitSystem::correctQdot()
     // Reset from last time
     this->Qdot_ = 0.0;
 
-    // loop through the species sources that have 
-    // been updated 
+    // loop through the species sources that have
+    // been updated
 
     forAllIter(HashTable<scalarField>, this->speciesSources, iter)
     {
@@ -428,7 +425,7 @@ void Foam::EulerImplicitSystem::calcSpecieSources
     // density in this cell (assumed constant over these steps)
     const scalar cellRho = this->cellState_.thermoProperties()["rho"];
 
-    if 
+    if  // There is mass fraction exceeding one
         (
             Y_final[0] > 1.0 ||
             Y_final[1] > 1.0 ||
@@ -441,13 +438,11 @@ void Foam::EulerImplicitSystem::calcSpecieSources
             Y_final[8] > 1.0
         )
     {
-        Info << "Mass Fraction Greater than one" << endl;
+        Info << "WARNING: Mass Fraction Greater than one" << endl;
         Info << "After sources:\n"  << endl;
         Info << "\nCell number: " << cellNumber << endl;
         Info << "Y_initial: \n " << Y_initial << endl;
         Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
-			
-        //FatalErrorInFunction << "Mass Fraction Above one" << abort(FatalError);
     }
 
     if (min(Y_final) < 0.0)
@@ -637,11 +632,13 @@ void Foam::EulerImplicitSystem::updateSources
     if (fv::localEulerDdt::enabled(this->mesh_))
     {
         Info << "Operating soot model in LTS mode" << endl;
-        // get the LTS timsteps
-        const scalarField& dt = fv::localEulerDdt::localRDeltaT(this->mesh_);
+        // get the LTS timsteps inverses (if there is a function
+        // that just gets the time steps then use that
+        const scalarField& localDtInv = 
+            fv::localEulerDdt::localRDeltaT(this->mesh_);
         forAll(this->mesh_.C(), cellNumber)
         {
-            this->calcSpecieSources(1.0/dt[cellNumber], nSubSteps, 
+            this->calcSpecieSources(1.0/localDtInv[cellNumber], nSubSteps, 
             frozenSpecieNames, cellNumber);
         }
     }

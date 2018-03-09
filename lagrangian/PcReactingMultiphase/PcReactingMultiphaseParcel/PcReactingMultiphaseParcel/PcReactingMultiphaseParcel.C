@@ -169,7 +169,6 @@ void Foam::PcReactingMultiphaseParcel<ParcelType>::calc
     const CompositionModel<reactingCloudType>& composition =
         td.cloud().composition();
 
-
     // Define local properties at beginning of timestep
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -190,8 +189,7 @@ void Foam::PcReactingMultiphaseParcel<ParcelType>::calc
     // Calc surface values
     scalar Ts, rhos, mus, Prs, kappas;
     this->calcSurfaceValues(td, celli, T0, Ts, rhos, mus, Prs, kappas);
-    scalar Res = this->Re(U0, d0, rhos, mus);
-
+    scalar Res = this->Re(U0, d0, rhos, mus); 
 
     // Sources
     //~~~~~~~~
@@ -268,7 +266,6 @@ void Foam::PcReactingMultiphaseParcel<ParcelType>::calc
     // reference to the tarProps to go into the devol function
     scalarField& tarProps = this->tarProps_;
 
-    
     // Calc mass and enthalpy transfer due to devolatilisation
     calcDevolatilisation
     (
@@ -292,7 +289,6 @@ void Foam::PcReactingMultiphaseParcel<ParcelType>::calc
 	tarProps,
 	dMassSP
     );
-    
 
 
     // Surface reactions
@@ -481,7 +477,7 @@ void Foam::PcReactingMultiphaseParcel<ParcelType>::calc
             td.cloud().UTrans()[celli] += dm*U0;
             td.cloud().hsTrans()[celli] += dm*hs;
         }
-
+        
         // Update momentum transfer
         td.cloud().UTrans()[celli] += np0*dUTrans;
         td.cloud().UCoeff()[celli] += np0*Spu;
