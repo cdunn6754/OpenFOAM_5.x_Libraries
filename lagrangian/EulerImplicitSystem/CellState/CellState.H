@@ -33,9 +33,6 @@ Class to hold cell thermophysical state for the EulerImplicit integration.
 #include "fvCFD.H"
 #include "psiReactionThermo.H"
 
-#include <time.h>
-#include <printf.h>
-
 namespace Foam
 {
 
