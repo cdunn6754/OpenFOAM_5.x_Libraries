@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2011-2014 OpenFOAM Foundation
+    \\  /    A nd           | Copyright (C) 2011-2015 OpenFOAM Foundation
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,48 +23,32 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "psiThermo.H"
-#include "makeThermo.H"
-
-#include "specie.H"
-#include "perfectGas.H"
-#include "PengRobinsonGas.H"
-#include "hConstThermo.H"
-#include "eConstThermo.H"
-#include "janafThermo.H"
-#include "sensibleEnthalpy.H"
-#include "sensibleInternalEnergy.H"
-#include "thermo.H"
-
-#include "constTransport.H"
-#include "sutherlandTransport.H"
-
-#include "hPolynomialThermo.H"
-#include "polynomialTransport.H"
-
-#include "sootHePsiThermo.H"
 #include "sootPureMixture.H"
+#include "fvMesh.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-namespace Foam
-{
-
-/* * * * * * * * * * * * * * * * * Enthalpy-based * * * * * * * * * * * * * */
-makeThermo
+template<class ThermoType>
+Foam::sootPureMixture<ThermoType>::sootPureMixture
 (
-    psiThermo,
-    sootHePsiThermo,
-    sootPureMixture,
-    sutherlandTransport,
-    sensibleEnthalpy,
-    janafThermo,
-    perfectGas,
-    specie
-);
+    const dictionary& thermoDict,
+    const fvMesh& mesh,
+    const word& phaseName
+)
+:
+    basicMixture(thermoDict, mesh, phaseName),
+    mixture_(thermoDict.subDict("mixture")),
+    speciesData_(1) //PtrList of size one, doesnt matter its a dummy
+{}
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-} // End namespace Foam
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+template<class ThermoType>
+void Foam::sootPureMixture<ThermoType>::read(const dictionary& thermoDict)
+{
+    mixture_ = ThermoType(thermoDict.subDict("mixture"));
+}
+
 
 // ************************************************************************* //

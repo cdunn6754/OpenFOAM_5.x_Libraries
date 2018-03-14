@@ -36,7 +36,7 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootCellMixture
 {
     Info << "\n\nHIYA Buddy\n\n" << endl;
     const typename MixtureType::thermoType firstSpecie = 
-        MixtureType::cellMixture(0);
+        MixtureType::speciesData()[0];
     
     return firstSpecie;
 }
