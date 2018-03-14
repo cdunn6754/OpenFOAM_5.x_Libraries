@@ -30,14 +30,24 @@ License
 
 #include "specie.H"
 #include "perfectGas.H"
+#include "hConstThermo.H"
 #include "janafThermo.H"
 #include "sensibleEnthalpy.H"
 #include "thermo.H"
+#include "constTransport.H"
 #include "sutherlandTransport.H"
 
-#include "sootReactingMixture.H"
+#include "homogeneousMixture.H"
+#include "inhomogeneousMixture.H"
+#include "veryInhomogeneousMixture.H"
+#include "multiComponentMixture.H"
+#include "reactingMixture.H"
+#include "singleStepReactingMixture.H"
 
 #include "thermoPhysicsTypes.H"
+
+// 03-14-18:
+#include "sootHePsiThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -46,13 +56,15 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// sensible enthalpy, sootReactingMixture
+
+// Multi-component reaction thermo for sensible enthalpy
+
 makeReactionMixtureThermo
 (
     psiThermo,
     psiReactionThermo,
-    hePsiThermo,
-    sootReactingMixture,
+    sootHePsiThermo,
+    reactingMixture,
     gasHThermoPhysics
 );
 

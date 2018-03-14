@@ -1,0 +1,3 @@
+psiThermo/sootPsiThermos.C
+
+LIB = $(FOAM_USER_LIBBIN)/libsootFluidThermophysicalModels
