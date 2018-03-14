@@ -28,6 +28,20 @@ License
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 template<class BasicPsiThermo, class MixtureType>
+typename MixtureType::thermoType
+Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootCellMixture
+(
+    const label celli
+) const
+{
+    Info << "\n\nHIYA Buddy\n\n" << endl;
+    const typename MixtureType::thermoType firstSpecie = 
+        MixtureType::cellMixture(0);
+    
+    return firstSpecie;
+}
+
+template<class BasicPsiThermo, class MixtureType>
 void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
 {
     const scalarField& hCells = this->he_;
@@ -40,6 +54,8 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
 
     forAll(TCells, celli)
     {
+        const typename MixtureType::thermoType mixture1_ =
+            this->sootCellMixture(celli);
         const typename MixtureType::thermoType& mixture_ =
             this->cellMixture(celli);
 
