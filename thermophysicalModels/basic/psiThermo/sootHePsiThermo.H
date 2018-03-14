@@ -58,7 +58,7 @@ class sootHePsiThermo
         void calculate();
 
         // - Specialized version of cellMixture adapted from multiComponentMixture.
-        // This will ignore the soot contribution when making the mixture
+        // This will ignore the soot contribution when making the mixture.
         typename MixtureType::thermoType sootCellMixture(const label celli) const;
 
         //- Construct as copy (not implemented)

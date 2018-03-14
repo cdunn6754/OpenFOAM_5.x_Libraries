@@ -34,11 +34,37 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootCellMixture
     const label celli
 ) const
 {
-    Info << "\n\nHIYA Buddy\n\n" << endl;
-    const typename MixtureType::thermoType firstSpecie = 
-        MixtureType::speciesData()[0];
+
+    // Get those mass fractions
+    const PtrList<volScalarField>& Y_ = MixtureType::Y();
+
+    // Hope that SOOT isn't the first specie listed
+    typename MixtureType::thermoType mixture = 
+        Y_[0][celli]*MixtureType::speciesData()[0];
     
-    return firstSpecie;
+    // The whole point is to avoid SOOT
+    if (Y_[0].name() != "SOOT")
+    {
+        for (label n=1; n<Y_.size(); n++)
+        {
+            if (Y_[n].name() != "SOOT")
+            {
+                mixture += Y_[n][celli]*MixtureType::speciesData()[n];
+            }
+        }
+    }
+    else 
+    {
+        // If SOOT was the first one then reset and loop through the rest
+        mixture = Y_[1][celli]*MixtureType::speciesData()[1];
+
+        for (label n=1; n<Y_.size(); n++)
+        {
+            mixture += Y_[n][celli]*MixtureType::speciesData()[n];
+        }
+    }
+    
+    return mixture;
 }
 
 template<class BasicPsiThermo, class MixtureType>
@@ -54,8 +80,11 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
 
     forAll(TCells, celli)
     {
-        const typename MixtureType::thermoType mixture1_ =
+        // Use the sootCellMixture function to exclude 
+        // soot from the calculation
+        const typename MixtureType::thermoType sootMixture_ =
             this->sootCellMixture(celli);
+
         const typename MixtureType::thermoType& mixture_ =
             this->cellMixture(celli);
 
@@ -66,7 +95,7 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
             TCells[celli]
         );
         
-        psiCells[celli] = mixture_.psi(pCells[celli], TCells[celli]);
+        psiCells[celli] = sootMixture_.psi(pCells[celli], TCells[celli]);
 
         muCells[celli] = mixture_.mu(pCells[celli], TCells[celli]);
         alphaCells[celli] = mixture_.alphah(pCells[celli], TCells[celli]);
