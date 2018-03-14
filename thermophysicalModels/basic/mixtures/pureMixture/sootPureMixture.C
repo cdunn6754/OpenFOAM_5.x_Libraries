@@ -38,7 +38,8 @@ Foam::sootPureMixture<ThermoType>::sootPureMixture
 :
     basicMixture(thermoDict, mesh, phaseName),
     mixture_(thermoDict.subDict("mixture")),
-    speciesData_(1) //PtrList of size one, doesnt matter its a dummy
+    speciesData_(1), //PtrList of size one, doesnt matter its a dummy
+    Y_(1) //PtrList of size one, doesnt matter its a dummy
 {}
 
 

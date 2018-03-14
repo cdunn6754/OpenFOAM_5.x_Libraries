@@ -60,6 +60,11 @@ class sootPureMixture
         //  build this lower level library.
         PtrList<ThermoType> speciesData_;
 
+        // - (just a dummy so that we can 
+        //  build call speciesData() so that we can in turn
+        //  build this lower level library.
+        PtrList<volScalarField> Y_;
+
         //- Construct as copy (not implemented)
         sootPureMixture(const sootPureMixture<ThermoType>&);
 
@@ -123,6 +128,13 @@ public:
         const PtrList<ThermoType>& speciesData() const
         {
             return speciesData_;
+        }
+
+        //- Return the raw specie thermodynamic data
+        // dummy function so that we can build this library
+        const PtrList<volScalarField>& Y() const
+        {
+            return Y_;
         }
 
         //- Read dictionary
