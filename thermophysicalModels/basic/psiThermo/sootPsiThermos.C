@@ -51,6 +51,7 @@ namespace Foam
 {
 
 /* * * * * * * * * * * * * * * * * Enthalpy-based * * * * * * * * * * * * * */
+
 makeThermo
 (
     psiThermo,

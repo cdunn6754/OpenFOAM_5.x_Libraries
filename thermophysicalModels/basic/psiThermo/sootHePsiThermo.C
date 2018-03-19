@@ -169,7 +169,8 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootHePsiThermo
     const word& phaseName
 )
 :
-    heThermo<BasicPsiThermo, MixtureType>(mesh, phaseName)
+    heThermo<BasicPsiThermo, MixtureType>(mesh, phaseName),
+    sootVolume_(mesh.C().size(), 0.0)
 {
     calculate();
 
@@ -199,6 +200,9 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::correct()
     this->psi_.oldTime();
 
     calculate();
+    Info << "Done with calculate" << endl;
+    updateSootVolume();
+    Info << "Done with update soot" << endl;
 
     if (debug)
     {
@@ -206,5 +210,81 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::correct()
     }
 }
 
+template<class BasicPsiThermo, class MixtureType>
+void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
+{
+    
+    // Hardcoded soot density
+    scalar sootDensity(2000.0); // kg\m^3 from dasgupta thesis
+
+    // // So this is pretty crazy but since heThermo is derived 
+    // // from the template parameter MixtureType and this class (sootHe...)
+    // // is derived from heThermo we have a base class subobject of type
+    // // MixtureType. So not only can MixtureType here refer to the template type
+    // // like it normalliy does but in the second usage (within the parentheses)
+    // // it is the baseclass subobject of type MixtureType, i.e. it is 
+    // // an object too not just a type name. 
+    // // I did this so I can use mixture_ rather than typing out MixtureType. 
+    // // And just to see if it would work.
+    // MixtureType mixture_(MixtureType);
+
+    // To be the sum overall species of [m^3_specie / kg_total]
+    tmp<scalarField> tSpecificVolumeSum(new scalarField(this->sootVolume_.size(), 0.0));
+    scalarField& specificVolumeSum = tSpecificVolumeSum.ref();
+    
+    // As we iterate we will grab the SOOT specie index
+    label sootIdx(-1);
+
+    // const scalarField& p_ = this->.p_;
+    // const scalarField& T_ = this->.T_;
+
+    // Pointer to the mixture for this thermo
+    basicSpecieMixture& mixture_ = this->composition();
+
+    forAll(this->Y(), specieI)
+    {
+        const scalarField& Yi = mixture_.Y()[specieI];
+        const word specieName = mixture_.Y()[specieI].name();
+          
+        if (specieName == "SOOT")
+        {
+            sootIdx = specieI;
+            specificVolumeSum += Yi/sootDensity;
+        }
+        else
+        {
+            // loop through cells for non-constant density
+            forAll(specificVolumeSum, celli)
+            {
+                specificVolumeSum[celli] += Yi[celli]/
+                    mixture_.rho(specieI, this->p_[celli], this->T_[celli]);
+            }
+        }
+            
+    }// end loop through species
+
+    
+    // now find soot volume fraction by [V_soot/kg_total] / [V_total/kg_total]
+    this->sootVolume_ = 
+        (this->Y()[sootIdx]/sootDensity) / (specificVolumeSum);
+}
+
+template<class BasicPsiThermo, class MixtureType> 
+const Foam::scalarField& 
+Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootVolume() const
+{
+    return this->sootVolume_;
+}
+
+
+template<class BasicPsiThermo, class MixtureType> 
+Foam::tmp<Foam::volScalarField>
+Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::rho()
+{
+    Info << "using new soot" << endl;
+    // again hardcode soot density
+    return (1.0 - this->sootVolume_)*(this->p_*this->psi_) + 
+          (this->sootVolume_) * 2000.0;
+}
 
 // ************************************************************************* //
