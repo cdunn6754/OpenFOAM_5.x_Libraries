@@ -137,6 +137,17 @@ public:
             return Y_;
         }
 
+        //- Dummy function to make the basic library compile
+        scalar rho
+        (
+            const label speciei,
+            const scalar p,
+            const scalar T
+        )
+        {
+            return 0;
+        }
+
         //- Read dictionary
         void read(const dictionary&);
 };
