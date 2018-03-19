@@ -200,9 +200,9 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::correct()
     this->psi_.oldTime();
 
     calculate();
-    Info << "Done with calculate" << endl;
+    Info << "\n\nDone with calculate\n\n" << endl;
     updateSootVolume();
-    Info << "Done with update soot" << endl;
+    Info << "\n\nDone with update soot\n\n" << endl;
 
     if (debug)
     {
@@ -216,17 +216,6 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
     
     // Hardcoded soot density
     scalar sootDensity(2000.0); // kg\m^3 from dasgupta thesis
-
-    // // So this is pretty crazy but since heThermo is derived 
-    // // from the template parameter MixtureType and this class (sootHe...)
-    // // is derived from heThermo we have a base class subobject of type
-    // // MixtureType. So not only can MixtureType here refer to the template type
-    // // like it normalliy does but in the second usage (within the parentheses)
-    // // it is the baseclass subobject of type MixtureType, i.e. it is 
-    // // an object too not just a type name. 
-    // // I did this so I can use mixture_ rather than typing out MixtureType. 
-    // // And just to see if it would work.
-    // MixtureType mixture_(MixtureType);
 
     // To be the sum overall species of [m^3_specie / kg_total]
     tmp<scalarField> tSpecificVolumeSum(new scalarField(this->sootVolume_.size(), 0.0));
@@ -279,7 +268,7 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootVolume() const
 
 template<class BasicPsiThermo, class MixtureType> 
 Foam::tmp<Foam::volScalarField>
-Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::rho()
+Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootRho()
 {
     Info << "using new soot" << endl;
     // again hardcode soot density

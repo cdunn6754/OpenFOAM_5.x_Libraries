@@ -23,7 +23,7 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "psiThermo.H"
+#include "sootPsiThermo.H"
 #include "makeThermo.H"
 
 #include "specie.H"

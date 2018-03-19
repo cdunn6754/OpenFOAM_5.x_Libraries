@@ -106,7 +106,7 @@ public:
 
     //- Density calculation that overides virtual psiThermo function.
     //  Treats soot fraction in proper multiphase fashion.
-    tmp<volScalarField> rho();
+    tmp<volScalarField> sootRho();
 };
 
 
