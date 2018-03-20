@@ -33,7 +33,7 @@ Description
 // Constructor
 Foam::CellState::CellState
 (
-    const psiReactionThermo& thermo,
+    const sootPsiReactionThermo& thermo,
     const basicSpecieMixture& composition,
     const scalarField& Ns,
     const fvMesh& mesh

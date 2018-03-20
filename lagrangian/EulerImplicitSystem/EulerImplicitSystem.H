@@ -41,7 +41,7 @@ Description
 #include "scalar.H"
 #include "scalarField.H"
 #include "dimensionSet.H"
-#include "psiReactionThermo.H"
+#include "sootPsiReactionThermo.H"
 #include "fvScalarMatrix.H"
 #include "label.H"
 #include "tmp.H"
@@ -68,7 +68,7 @@ class EulerImplicitSystem
     const scalar pi = 3.1415;
 
     // Const ref to the thermo
-    const psiReactionThermo& thermo_;
+    const sootPsiReactionThermo& thermo_;
     // Const ref to the composition
     const basicSpecieMixture& composition_;
     // Const ref to mesh
@@ -176,7 +176,7 @@ public:
     // Constructor
     EulerImplicitSystem
     (
-        const psiReactionThermo& thermo, 
+        const sootPsiReactionThermo& thermo, 
         const basicSpecieMixture& composition,
         const volScalarField& Ns,
         const fvMesh& mesh,
