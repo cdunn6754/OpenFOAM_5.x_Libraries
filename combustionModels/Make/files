@@ -1,0 +1,11 @@
+sootPsiCombustionModel/sootPsiCombustionModel/sootPsiCombustionModel.C
+sootPsiCombustionModel/sootPsiCombustionModel/sootPsiCombustionModelNew.C
+sootPsiCombustionModel/sootPsiThermoCombustion/sootPsiThermoCombustion.C
+sootPsiCombustionModel/sootPsiChemistryCombustion/sootPsiChemistryCombustion.C
+
+makeTypes/PaSRs.C
+makeTypes/EDCs.C
+makeTypes/laminars.C
+makeTypes/noCombustions.C
+
+LIB = $(FOAM_USER_LIBBIN)/libsootCombustionModels

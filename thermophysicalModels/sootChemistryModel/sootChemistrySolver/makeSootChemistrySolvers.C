@@ -23,53 +23,45 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "makeReactionThermo.H"
-
-#include "psiReactionThermo.H"
-#include "hePsiThermo.H"
-
-#include "specie.H"
-#include "perfectGas.H"
-#include "hConstThermo.H"
-#include "janafThermo.H"
-#include "sensibleEnthalpy.H"
-#include "thermo.H"
-#include "constTransport.H"
-#include "sutherlandTransport.H"
-
-#include "homogeneousMixture.H"
-#include "inhomogeneousMixture.H"
-#include "veryInhomogeneousMixture.H"
-#include "multiComponentMixture.H"
-#include "reactingMixture.H"
-#include "singleStepReactingMixture.H"
+#include "makeChemistrySolverTypes.H"
 
 #include "thermoPhysicsTypes.H"
-
-// 03-14-18:
-#include "sootHePsiThermo.H"
+#include "sootPsiChemistryModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
+    // Chemistry solvers based on sensibleEnthalpy
+    makeChemistrySolverTypes(sootPsiChemistryModel, constGasHThermoPhysics);
+    makeChemistrySolverTypes(sootPsiChemistryModel, gasHThermoPhysics);
+    makeChemistrySolverTypes
+    (
+        sootPsiChemistryModel,
+        constIncompressibleGasHThermoPhysics
+    );
+    makeChemistrySolverTypes
+    (
+        sootPsiChemistryModel,
+        incompressibleGasHThermoPhysics)
+    ;
+    makeChemistrySolverTypes(sootPsiChemistryModel, icoPoly8HThermoPhysics);
+
+    // Chemistry solvers based on sensibleInternalEnergy
+    makeChemistrySolverTypes(sootPsiChemistryModel, constGasEThermoPhysics);
+    makeChemistrySolverTypes(sootPsiChemistryModel, gasEThermoPhysics);
+    makeChemistrySolverTypes
+    (
+        sootPsiChemistryModel,
+        constIncompressibleGasEThermoPhysics
+    );
+    makeChemistrySolverTypes
+    (
+        sootPsiChemistryModel,
+        incompressibleGasEThermoPhysics
+    );
+    makeChemistrySolverTypes(sootPsiChemistryModel, icoPoly8EThermoPhysics);
+}
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-
-// Multi-component reaction thermo for sensible enthalpy
-
-makeReactionMixtureThermo
-(
-    psiThermo,
-    psiReactionThermo,
-    sootHePsiThermo,
-    reactingMixture,
-    gasHThermoPhysics
-);
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-} // End namespace Foam
-
-// ************************************************************************* //
