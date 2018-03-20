@@ -25,8 +25,8 @@ License
 
 #include "makeReactionThermo.H"
 
-#include "sootPsiReactionThermo.H"
-#include "hePsiThermo.H"
+//#include "psiReactionThermo.H"
+//#include "hePsiThermo.H"
 
 #include "specie.H"
 #include "perfectGas.H"
@@ -47,6 +47,7 @@ License
 #include "thermoPhysicsTypes.H"
 
 // 03-14-18:
+#include "sootPsiReactionThermo.H"
 #include "sootHePsiThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
