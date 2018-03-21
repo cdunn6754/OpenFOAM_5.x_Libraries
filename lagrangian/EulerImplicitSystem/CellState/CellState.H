@@ -31,7 +31,7 @@ Class to hold cell thermophysical state for the EulerImplicit integration.
 #define CellState_H
 
 #include "fvCFD.H"
-#include "sootPsiReactionThermo.H"
+#include "psiReactionThermo.H"
 
 namespace Foam
 {
@@ -39,7 +39,7 @@ namespace Foam
 class CellState
 {
 
-    const sootPsiReactionThermo& thermo_;
+    const psiReactionThermo& thermo_;
     const basicSpecieMixture& composition_;
     const fvMesh& mesh_;
     const scalarField& Ns_;
@@ -65,7 +65,7 @@ public:
 
     CellState
     (
-        const sootPsiReactionThermo& thermo,
+        const psiReactionThermo& thermo,
         const basicSpecieMixture& composition,
         const scalarField& Ns,
         const fvMesh& mesh

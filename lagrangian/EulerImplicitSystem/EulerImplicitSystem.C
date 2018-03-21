@@ -34,7 +34,7 @@ Description
 // Constructor
 Foam::EulerImplicitSystem::EulerImplicitSystem
 (
-    const sootPsiReactionThermo& thermo, 
+    const psiReactionThermo& thermo, 
     const basicSpecieMixture& composition,
     const volScalarField& Ns,
     const fvMesh& mesh,

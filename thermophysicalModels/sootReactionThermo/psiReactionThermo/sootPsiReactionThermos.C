@@ -25,7 +25,7 @@ License
 
 #include "makeReactionThermo.H"
 
-//#include "psiReactionThermo.H"
+#include "psiReactionThermo.H"
 //#include "hePsiThermo.H"
 
 #include "specie.H"
@@ -47,7 +47,7 @@ License
 #include "thermoPhysicsTypes.H"
 
 // 03-14-18:
-#include "sootPsiReactionThermo.H"
+// #include "sootPsiReactionThermo.H"
 #include "sootHePsiThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -63,7 +63,7 @@ namespace Foam
 makeReactionMixtureThermo
 (
     psiThermo,
-    sootPsiReactionThermo,
+    psiReactionThermo,
     sootHePsiThermo,
     reactingMixture,
     gasHThermoPhysics
