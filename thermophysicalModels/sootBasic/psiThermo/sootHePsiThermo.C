@@ -268,7 +268,7 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootVolume() const
 
 template<class BasicPsiThermo, class MixtureType> 
 Foam::tmp<Foam::volScalarField>
-Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootRho() const
+Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::rho() const
 {
     Info << "\n\nusing new rho\n\n" << endl;
     // again hardcode soot density
