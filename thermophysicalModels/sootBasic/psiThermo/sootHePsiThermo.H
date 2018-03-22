@@ -57,7 +57,10 @@ class sootHePsiThermo
     
         //- Soot volume fraction, used to determine multiphase 
         // density.
-        scalarField sootVolume_;
+        volScalarField sootVolume_;
+
+    //- Hard-coded soot density
+    dimensionedScalar sootDensity_;
     
     // Private Member Functions
 

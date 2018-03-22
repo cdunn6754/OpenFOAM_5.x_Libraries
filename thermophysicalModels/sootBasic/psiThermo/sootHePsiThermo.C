@@ -170,7 +170,25 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootHePsiThermo
 )
 :
     heThermo<BasicPsiThermo, MixtureType>(mesh, phaseName),
-    sootVolume_(mesh.C().size(), 0.0)
+    sootVolume_
+    (
+        IOobject
+        (
+            "ThermoSootVolumeFraction",
+            mesh.time().timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionSet(0, 0, 0, 0, 0)
+    ),
+    sootDensity_
+    (
+        "sootDensity", 
+        dimensionSet(1,-3,0,0,0),
+        1000.0
+    )
 {
     calculate();
 
@@ -200,9 +218,7 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::correct()
     this->psi_.oldTime();
 
     calculate();
-    Info << "\n\nDone with calculate\n\n" << endl;
     updateSootVolume();
-    Info << "\n\nDone with update soot\n\n" << endl;
 
     if (debug)
     {
@@ -223,9 +239,6 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
     
     // As we iterate we will grab the SOOT specie index
     label sootIdx(-1);
-
-    // const scalarField& p_ = this->.p_;
-    // const scalarField& T_ = this->.T_;
 
     // Pointer to the mixture for this thermo
     basicSpecieMixture& mixture_ = this->composition();
@@ -253,8 +266,9 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
     }// end loop through species
 
     
-    // now find soot volume fraction by [V_soot/kg_total] / [V_total/kg_total]
-    this->sootVolume_ = 
+    // now find and set the soot volume fraction as
+    // [V_soot/kg_total] / [V_total/kg_total]
+    this->sootVolume_.primitiveFieldRef() = 
         (this->Y()[sootIdx]/sootDensity) / (specificVolumeSum);
 }
 
@@ -270,11 +284,9 @@ template<class BasicPsiThermo, class MixtureType>
 Foam::tmp<Foam::volScalarField>
 Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::rho() const
 {
-    Info << "\n\nusing new rho\n\n" << endl;
-    // again hardcode soot density
-    return (this->p_*this->psi_);
-    // return (1.0 - this->sootVolume_)*(this->p_*this->psi_) + 
-    //       (this->sootVolume_) * 2000.0;
+
+    return (1.0 - this->sootVolume_)*(this->p_*this->psi_) + 
+        (this->sootVolume_) * this->sootDensity_;
 }
 
 // ************************************************************************* //
