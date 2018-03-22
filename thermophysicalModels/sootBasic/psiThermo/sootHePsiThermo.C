@@ -68,6 +68,49 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootCellMixture
 }
 
 template<class BasicPsiThermo, class MixtureType>
+typename MixtureType::thermoType
+Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootPatchFaceMixture
+(
+    const label patchi,
+    const label facei
+) const
+{
+
+    // Get those mass fractions
+    const PtrList<volScalarField>& Y_ = MixtureType::Y();
+
+    // Hope that SOOT isn't the first specie listed
+    typename MixtureType::thermoType mixture = 
+        Y_[0].boundaryField()[patchi][facei]*MixtureType::speciesData()[0];
+    
+    // The whole point is to avoid SOOT
+    if (Y_[0].name() != "SOOT")
+    {
+        for (label n=1; n<Y_.size(); n++)
+        {
+            if (Y_[n].name() != "SOOT")
+            {
+                mixture += Y_[n].boundaryField()[patchi][facei]
+                    *MixtureType::speciesData()[n];
+            }
+        }
+    }
+    else 
+    {
+        // If SOOT was the first one then reset and loop through the rest
+        mixture = Y_[1].boundaryField()[patchi][facei]*MixtureType::speciesData()[1];
+
+        for (label n=1; n<Y_.size(); n++)
+        {
+            mixture += Y_[n].boundaryField()[patchi][facei]
+                *MixtureType::speciesData()[n];
+        }
+    }
+    
+    return mixture;
+}
+
+template<class BasicPsiThermo, class MixtureType>
 void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
 {
     const scalarField& hCells = this->he_;
@@ -135,9 +178,12 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
                 const typename MixtureType::thermoType& mixture_ =
                     this->patchFaceMixture(patchi, facei);
 
+                const typename MixtureType::thermoType& sootMixture_ =
+                    this->sootPatchFaceMixture(patchi, facei);
+
                 phe[facei] = mixture_.HE(pp[facei], pT[facei]);
 
-                ppsi[facei] = mixture_.psi(pp[facei], pT[facei]);
+                ppsi[facei] = sootMixture_.psi(pp[facei], pT[facei]);
                 pmu[facei] = mixture_.mu(pp[facei], pT[facei]);
                 palpha[facei] = mixture_.alphah(pp[facei], pT[facei]);
             }
@@ -149,9 +195,12 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::calculate()
                 const typename MixtureType::thermoType& mixture_ =
                     this->patchFaceMixture(patchi, facei);
 
+                const typename MixtureType::thermoType& sootMixture_ =
+                    this->sootPatchFaceMixture(patchi, facei);
+
                 pT[facei] = mixture_.THE(phe[facei], pp[facei], pT[facei]);
 
-                ppsi[facei] = mixture_.psi(pp[facei], pT[facei]);
+                ppsi[facei] = sootMixture_.psi(pp[facei], pT[facei]);
                 pmu[facei] = mixture_.mu(pp[facei], pT[facei]);
                 palpha[facei] = mixture_.alphah(pp[facei], pT[facei]);
             }
@@ -264,7 +313,6 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
         }
             
     }// end loop through species
-
     
     // now find and set the soot volume fraction as
     // [V_soot/kg_total] / [V_total/kg_total]

@@ -71,6 +71,10 @@ class sootHePsiThermo
         // This will ignore the soot contribution when making the mixture
         typename MixtureType::thermoType sootCellMixture(const label celli) const;
 
+        // - Specialized version of patchFaceMixture adapted from multiComponentMixture.
+        // This will ignore the soot contribution when making the mixture
+        typename MixtureType::thermoType sootPatchFaceMixture(const label celli) const;
+
         //- Construct as copy (not implemented)
         sootHePsiThermo(const sootHePsiThermo<BasicPsiThermo, MixtureType>&);
 
