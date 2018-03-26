@@ -240,6 +240,7 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootHePsiThermo
     )
 {
     calculate();
+    updateSootVolume();
 
     // Switch on saving old time
     this->psi_.oldTime();
@@ -283,8 +284,7 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
     scalar sootDensity(2000.0); // kg\m^3 from dasgupta thesis
 
     // To be the sum overall species of [m^3_specie / kg_total]
-    tmp<scalarField> tSpecificVolumeSum(new scalarField(this->sootVolume_.size(), 0.0));
-    scalarField& specificVolumeSum = tSpecificVolumeSum.ref();
+    scalarField specificVolumeSum = scalarField(this->sootVolume_.size(), 0.0);
     
     // As we iterate we will grab the SOOT specie index
     label sootIdx(-1);
@@ -318,6 +318,9 @@ void Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::updateSootVolume()
     // [V_soot/kg_total] / [V_total/kg_total]
     this->sootVolume_.primitiveFieldRef() = 
         (this->Y()[sootIdx]/sootDensity) / (specificVolumeSum);
+
+    // Set this to 0 so that psi_* P_ is used for the boundary density field.
+    this->sootVolume_.boundaryFieldRef() = 0.0;
 }
 
 template<class BasicPsiThermo, class MixtureType> 
@@ -332,6 +335,8 @@ template<class BasicPsiThermo, class MixtureType>
 Foam::tmp<Foam::volScalarField>
 Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::rho() const
 {
+
+    //return this->p_ * this->psi_;
 
     return (1.0 - this->sootVolume_)*(this->p_*this->psi_) + 
         (this->sootVolume_) * this->sootDensity_;

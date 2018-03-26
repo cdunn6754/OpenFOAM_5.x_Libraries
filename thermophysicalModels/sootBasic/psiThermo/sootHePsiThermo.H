@@ -69,11 +69,22 @@ class sootHePsiThermo
 
         // - Specialized version of cellMixture adapted from multiComponentMixture.
         // This will ignore the soot contribution when making the mixture
-        typename MixtureType::thermoType sootCellMixture(const label celli) const;
+        typename MixtureType::thermoType sootCellMixture
+        (
+            const label celli
+        ) const;
 
         // - Specialized version of patchFaceMixture adapted from multiComponentMixture.
         // This will ignore the soot contribution when making the mixture
-        typename MixtureType::thermoType sootPatchFaceMixture(const label celli) const;
+        typename MixtureType::thermoType sootPatchFaceMixture
+        (
+            const label patchi,
+            const label facei
+        ) const;
+
+        // New 03-2018
+        //- Update soot volume fraction
+        void updateSootVolume();
 
         //- Construct as copy (not implemented)
         sootHePsiThermo(const sootHePsiThermo<BasicPsiThermo, MixtureType>&);
@@ -82,7 +93,6 @@ public:
 
     //- Runtime type information
     TypeName("sootHePsiThermo");
-
 
     // Constructors
 
@@ -102,11 +112,6 @@ public:
 
         //- Update properties
         virtual void correct();
-
-
-    // New 03-2018
-    //- Update soot volume fraction
-    void updateSootVolume();
 
     //- Const access to soot volume fraction
     const scalarField& sootVolume() const;
