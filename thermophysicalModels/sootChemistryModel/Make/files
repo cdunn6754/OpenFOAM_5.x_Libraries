@@ -1,7 +1,0 @@
-
-sootChemistryModel/sootPsiChemistryModel/sootPsiChemistryModel.C
-sootChemistryModel/sootPsiChemistryModel/sootPsiChemistryModels.C
-
-sootChemistrySolver/makeSootChemistrySolvers.C
-
-LIB = $(FOAM_USER_LIBBIN)/libsootChemistryModel
