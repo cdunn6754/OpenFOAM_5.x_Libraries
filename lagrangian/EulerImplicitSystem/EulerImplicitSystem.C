@@ -611,8 +611,7 @@ void Foam::EulerImplicitSystem::updateSources
 )
 {  
     // Update the fields stored in cellState to new time
-    // At this point all it does is recalculate mixture
-    // molar mass field
+    // Currently stores mixture MW field and gas density field.
     this->cellState_.updateCellStateFields(); 
     
     // Index the species list with the names of the species

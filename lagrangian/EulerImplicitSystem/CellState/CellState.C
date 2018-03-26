@@ -44,6 +44,7 @@ Foam::CellState::CellState
     mesh_(mesh),
     Ns_(Ns),
     molarMassField_(Ns.size(),0.0),
+    densityField_(Ns.size(),0.0),
     frozenSpecieMassFractions_(8),
     frozenSpeciePPressures_(4),
     thermoProperties_(3),
@@ -73,12 +74,16 @@ Foam::CellState::CellState
     thermoProperties_.insert("rho", 0.0);
     thermoProperties_.insert("T", 0.0);
     thermoProperties_.insert("p",0.0);
+
+    // Calculate the density and mixture molecular weight fields
+    updateCellStateFields();
 }
 
 
 void Foam::CellState::updateCellStateFields()
 {
     molarMassField_ = composition_.W().ref().primitiveField();
+    densityField_ = thermo_.rho().ref().primitiveField();
 }
 
 void Foam::CellState::updateCellState
@@ -93,8 +98,8 @@ void Foam::CellState::updateCellState
         // thermo properties
         this->thermoProperties_.set("T",this->thermo_.T().primitiveField()[cellNumber]);
         this->thermoProperties_.set("p",this->thermo_.p().primitiveField()[cellNumber]);
-        this->thermoProperties_.set("rho", 
-        thermo_.rho().ref().primitiveField()[cellNumber]);
+        this->thermoProperties_.set("rho", this->densityField_[cellNumber]);
+        //thermo_.rho().ref().primitiveField()[cellNumber]);
         this->W_ = this->molarMassField_[cellNumber];
         // not really thermo but this shouldn't change either.
         // not going to work with dynamic mesh I guess.

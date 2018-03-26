@@ -43,9 +43,10 @@ class CellState
     const basicSpecieMixture& composition_;
     const fvMesh& mesh_;
     const scalarField& Ns_;
-    // mixture molar mass field[kg/mol]
     // only changes when the main cfd time step changes
+    // mixture molar mass field[kg/mol]
     scalarField molarMassField_;
+    scalarField densityField_;
     HashTable<scalar> frozenSpecieMassFractions_;
     // Partial pressures of species
     HashTable<scalar> frozenSpeciePPressures_;
