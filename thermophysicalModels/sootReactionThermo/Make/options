@@ -1,5 +1,4 @@
 EXE_INC = \
-	-I$(USER_LIB_SRC)/thermophysicalModels/sootBasic/psiThermo \
     -I$(LIB_SRC)/transportModels/compressible/lnInclude \
     -I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
     -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude \
@@ -8,8 +7,6 @@ EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/lnInclude
 
 LIB_LIBS = \
-	 -L$(USER_LIB_LIBS) \
-	 -lsootFluidThermophysicalModels \
     -lcompressibleTransportModels \
     -lfluidThermophysicalModels \
     -lspecie \
