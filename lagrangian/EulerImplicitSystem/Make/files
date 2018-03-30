@@ -1,4 +1,0 @@
-CellState/CellState.C
-EulerImplicitSystem.C
-
-LIB = $(FOAM_USER_LIBBIN)/libEulerImplicitSystem

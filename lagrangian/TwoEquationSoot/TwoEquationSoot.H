@@ -34,8 +34,8 @@ Description
 //    and return the reaction rates. That way it would be easier to change reactions
 //    in the future maybe even at runtime.
 
-#ifndef EulerImplicitSystem_H
-#define EulerImplicitSystem_H
+#ifndef TwoEquationSoot_H
+#define TwoEquationSoot_H
 
 #include <math.h>
 #include "scalar.H"
@@ -48,7 +48,6 @@ Description
 #include "HashTable.H"
 #include "List.H"
 #include "CellState.H"
-#include "SootReactions.H"
 #include "ODESystem.H"
 #include "localEulerDdtScheme.H"
 
@@ -56,7 +55,7 @@ Description
 namespace Foam
 {
 
-class EulerImplicitSystem
+class TwoEquationSoot
 {
 
     // true constants
@@ -174,7 +173,7 @@ class EulerImplicitSystem
 public: 
 
     // Constructor
-    EulerImplicitSystem
+    TwoEquationSoot
     (
         const psiReactionThermo& thermo, 
         const basicSpecieMixture& composition,

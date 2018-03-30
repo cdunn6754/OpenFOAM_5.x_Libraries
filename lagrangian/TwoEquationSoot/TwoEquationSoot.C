@@ -28,11 +28,11 @@ Description
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#include "EulerImplicitSystem.H"
+#include "TwoEquationSoot.H"
 
 
 // Constructor
-Foam::EulerImplicitSystem::EulerImplicitSystem
+Foam::TwoEquationSoot::TwoEquationSoot
 (
     const psiReactionThermo& thermo, 
     const basicSpecieMixture& composition,
@@ -92,7 +92,7 @@ rKronOH_(rKronOH)
 }
 
 // Member functions
-void Foam::EulerImplicitSystem::ratesOfChange
+void Foam::TwoEquationSoot::ratesOfChange
 (
     scalar& r_growth,
     scalar& r_oxidation_O2,
@@ -182,7 +182,7 @@ void Foam::EulerImplicitSystem::ratesOfChange
     
 } //end ratesOfChange
 
-void Foam::EulerImplicitSystem::explicitStep
+void Foam::TwoEquationSoot::explicitStep
 (
     const scalarField& Y_initial,
     scalarField& Y_final,
@@ -228,7 +228,7 @@ void Foam::EulerImplicitSystem::explicitStep
 
 }// end AdvanceFrozenspecies
 
-void Foam::EulerImplicitSystem::advanceToZero
+void Foam::TwoEquationSoot::advanceToZero
 (
     const scalar totalTime,
     scalar& smallSubTime,
@@ -280,7 +280,7 @@ void Foam::EulerImplicitSystem::advanceToZero
     Y_current[worstIndex] = 0.0;//Foam::VSMALL;
 }
 
-void Foam::EulerImplicitSystem::exhaustLowSpecie
+void Foam::TwoEquationSoot::exhaustLowSpecie
 (
     const scalar totalTime, 
     scalar& smallSubTime,
@@ -314,7 +314,7 @@ void Foam::EulerImplicitSystem::exhaustLowSpecie
 
 
 
-void Foam::EulerImplicitSystem::correctQdot()
+void Foam::TwoEquationSoot::correctQdot()
 {
 
     // Reset from last time
@@ -336,7 +336,7 @@ void Foam::EulerImplicitSystem::correctQdot()
     }    
 }
 
-void Foam::EulerImplicitSystem::calcSpecieSources
+void Foam::TwoEquationSoot::calcSpecieSources
 (
     const scalar dt,
     const label nSubSteps,
@@ -498,7 +498,7 @@ void Foam::EulerImplicitSystem::calcSpecieSources
 //****************** Public member functions ********************//
 
 
-Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::Qdot()
+Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::Qdot()
 {
         tmp<volScalarField> tQdot
         (
@@ -523,7 +523,7 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::Qdot()
         return tQdot;
 }
 
-Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceN()
+Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::sourceN()
 {
     //tmp<fvScalarMatrix> tfvm(new fvScalarMatrix(N_soot, N_source_dims));
 
@@ -557,7 +557,7 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceN()
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
+Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::sourceY
 (
     const volScalarField& Y_field
 )
@@ -605,7 +605,7 @@ Foam::tmp<Foam::volScalarField> Foam::EulerImplicitSystem::sourceY
 // Main function for calculating the sources.
 // Used in transient non-LTS solvers with same dt for 
 // all cells
-void Foam::EulerImplicitSystem::updateSources
+void Foam::TwoEquationSoot::updateSources
 (
     const label nSubSteps
 )
