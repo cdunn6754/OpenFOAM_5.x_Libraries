@@ -40,7 +40,7 @@ Description
     Where:
         kappa = rate constant
         Ap    = pre-exponential factor (user input) [1/s]
-        Ep     = activation energy (user input) [kcal/mole]
+        Ep    = activation energy (user input) [kcal/mole]
         R     = universal gas constant
         T     = temperature
 
@@ -51,11 +51,11 @@ Description
       In PP the tar is evolved and returned appropriately in dMassDV, still
       as if it is going to be released into the gas phase.
     - In SP (within this class) we calculate, given the mass of tar being
-      evolved, the mass of the actual gas species that should be released
-      in its place and store them in dMassSP (which is ordered just 
+      evolved, the corresponding mass of the actual gas species that should be 
+      released in its place and store them in dMassSP (which is ordered just 
       as dMassDV so dMassDV + dMassSP makes sense). dMassSP is returned by 
       the main calculate function in this class as well.
-    - In the outer function (calc() in PcReactingMultiphaseParcel.C) the tar
+    - In the outer function (calc() in PcReactingMultiphaseParcel.C) the tar mass
       in dMassDV is left until the parcel mass fractions have updated =>
       the tar fraction of the particle is update appropriately. BUT ! the tar 
       is then removed and replaced with its breakdown products stored in dMassSP
@@ -81,7 +81,7 @@ Description
         }
 
 	The parameters are passed in in this form
-	(speciesName    Ap    Ep    As    Es    YInfs)
+	(specieName    Ap    Ep    As    Es    YInfs)
 	
 	The forms of the entry are dependant on whether the specie is
 	TAR or not:
@@ -94,7 +94,7 @@ Description
           provided in PCCL i.e. A=[1/s] and E=[kcal/mol]
 
 	 -In these species Yinfs stands for the 
-	  mass fraction of the species from tar breakdown. In other words
+	  mass fraction of the species from tar breakdown, e.g.
 	  for species X with Yinfs = 0.5 there will be 0.5 grams of X produced
 	  when 1 gram of Tar is broken down (through secondary pyrolysis). This
 	  fraction information is obtained from the PCCL file 'SFTRC1T1.rpt'.
@@ -105,7 +105,7 @@ Description
 
 	For TAR:
 	 -Ap and Ep are just the normal speciated PP rate parameters. In this 
-	  sense TAR is treated as any other volatile specie. These parameters
+	  regard TAR is treated as any other volatile specie. These parameters
 	  are also obtained from the 'SFORC1T1.rpt' file (taking the rates for 
 	  tar in that file).
 
@@ -122,7 +122,7 @@ Description
 	
 
 	 /// ********************************************************
-	IMPORTANT BUG NOTE:
+	 IMPORTANT BUG NOTE:
 	 Right now there is one known problem in the code, TAR must be the 
 	 first specie listed in the cloudProperties when specifying the gas
 	 mass fractions within the singleMixtureFractionCoeffs dict.
@@ -306,7 +306,7 @@ class SingleKineticRatePcDevolatilisation
   // In order to work with daf basis in main funtion
   // we need the mass fraction of ash and water of
   // the particles so Ydaf0 is the initial 
-  // mass fraction of the particle that is daf
+  // mass fraction of the particle that is daf (i.e. 1.0 - Y_ash - Y_water)
   // it is assumed that these fractions are the same for all particles
     scalar Ydaf0_;
 

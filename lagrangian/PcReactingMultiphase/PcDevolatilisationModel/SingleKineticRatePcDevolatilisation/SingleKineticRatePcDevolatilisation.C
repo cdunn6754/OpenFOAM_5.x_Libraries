@@ -154,13 +154,13 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
         const scalar massVolatile = mass*YGasEff[id];
 
 	// For the PC coal lab devol rate laws we need daf based
-	// YdafVolatile0, as opposed to the YVolatile0 we already have.
+	// YdafVolatile0, in constrast to the YVolatile0 we already have.
 	const scalar YdafVolatile0 = (YVolatile0_[i]/Ydaf0_);
         
+	const scalar massDevoled = massVolatile0 - massVolatile;
 	// YdafDevoled is the mass fraction of current specie mass lost
 	// compared to the initial daf mass (dafMass0)
 	// YdafDevoled starts at 0.0 and approaches YdafVolatile0
-	const scalar massDevoled = massVolatile0 - massVolatile;
 	scalar YdafDevoled = massDevoled/(dafMass0);	
  
         // Combustion allowed once all volatile components evolved
@@ -187,6 +187,7 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 	// (including tar, we will remove in outer function)
 	dMassDV[id] = min(YdafTransfered*dafMass0, massVolatile);
 
+        // // Secondary Pyrolysis
 	// In the case of Tar we need to do the secondary pyrolysis
 	// in addition to the primary devolatilization
 	if (volatileData_[i].name() == "TAR")
@@ -194,7 +195,7 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 	    // - Get the particle data from tarProps
 	    // Primary released by particle daf mass fraction
 	    scalar& Yp = tarProps[0];
-	    // difference between Primary tar released (Yp)
+	    // - Difference between Primary tar released (Yp)
 	    // and actual tar remaining (i.e. secondary tar (Ys))
 	    scalar& dY = tarProps[1];
 
@@ -211,10 +212,22 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 	    const scalar Yinf = volatileData_[i].Yinfs(); 
 
 	    const scalar kappa = As * exp(-Es/(pcR*T));
-	    const scalar dyIncrement = dt * kappa * (Yinf - dY);
+	    scalar dyIncrement = dt * kappa * (Yinf - dY);
 
-	    // increment the dY value of this particle
-	    dY += dyIncrement;
+
+            // Do not let the amount of tar decomposed
+            // become greater than amount of primary tar
+            // that is available for decomposition
+            if ((dY + dyIncrement) > Yp)
+            {
+                dY = Yp;
+                dyIncrement = Yp - dY;
+            }
+            else
+            {
+                // increment the dY value of this particle
+                dY += dyIncrement;
+            }            
 	    
 	    // mass of this mass fraction increment
 	    const scalar massIncrement = dyIncrement * dafMass0;
