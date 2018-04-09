@@ -1,3 +1,0 @@
-CellState.C
-
-LIB = $(FOAM_USER_LIBBIN)/libCellState
