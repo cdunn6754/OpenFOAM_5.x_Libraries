@@ -34,8 +34,8 @@ Description
 //    and return the reaction rates. That way it would be easier to change reactions
 //    in the future maybe even at runtime.
 
-#ifndef TwoEquationSoot_H
-#define TwoEquationSoot_H
+#ifndef SootTarModel_H
+#define SootTarModel_H
 
 #include <math.h>
 #include "scalar.H"
@@ -55,7 +55,7 @@ Description
 namespace Foam
 {
 
-class TwoEquationSoot
+class SootTarModel
 {
 
     // true constants
@@ -75,11 +75,15 @@ class TwoEquationSoot
     // CellState object 
     CellState cellState_;
     // make the proper dimension sets for the sources
-    dimensionSet Y_source_dims; //[kg/(m^3 * s)]
+    dimensionSet Y_source_dims; // [kg/(m^3 * s)]
     dimensionSet N_source_dims; // [1/(m^3 * s)]
 
     // table for relevant specie molecular weights [kg/kmol]
     HashTable<scalar> MW_;
+
+    // table to hold intial specie mass fractions
+    // For each specie an initial value and a final value is stored
+    HashTable<Pair<scalar>> specieY_;
 
     // Soot source fields for two soot transport equation number density
     scalarField N_source;
@@ -89,15 +93,6 @@ class TwoEquationSoot
     
     // Source for enthalpy equation
     scalarField Qdot_;
-
-    // DEBUG
-    volScalarField& rGro_;
-    volScalarField& rOxO2_;
-    volScalarField& rOxOH_;
-    volScalarField& rGasH2O_;
-    volScalarField& rGasCO2_;
-    volScalarField& rAgg_;
-    volScalarField& rKronOH_;
 
     // ...........................................................//
     // // Member functions
@@ -156,8 +151,8 @@ class TwoEquationSoot
     );
 
     // Correct the soot model Qdot based on the sources for the
-    // species equations and thier enthalpies of formation
-    // Very much how the main combustion chemistry model does it.
+    // species equations and their enthalpies of formation
+    // Very similar how the main combustion chemistry model does it.
     void correctQdot();
 
     // Calculate and update specieSources for cell given time step 
@@ -173,19 +168,12 @@ class TwoEquationSoot
 public: 
 
     // Constructor
-    TwoEquationSoot
+    SootTarModel
     (
         const psiReactionThermo& thermo, 
         const basicSpecieMixture& composition,
         const volScalarField& Ns,
-        const fvMesh& mesh,
-        volScalarField& rGro,
-        volScalarField& rOxO2,
-        volScalarField& rOxOH,
-        volScalarField& rGasH2O,
-        volScalarField& rGasCO2,
-        volScalarField& rAgg,
-        volScalarField& rKronOH
+        const fvMesh& mesh
     );
 
 

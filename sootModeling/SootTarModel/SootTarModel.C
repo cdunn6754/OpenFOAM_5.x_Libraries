@@ -28,23 +28,15 @@ Description
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#include "TwoEquationSoot.H"
-
+#include "SootTarModel.H"
 
 // Constructor
-Foam::TwoEquationSoot::TwoEquationSoot
+Foam::SootTarModel::SootTarModel
 (
     const psiReactionThermo& thermo, 
     const basicSpecieMixture& composition,
     const volScalarField& Ns,
-    const fvMesh& mesh,
-    volScalarField& rGro,
-    volScalarField& rOxO2,
-    volScalarField& rOxOH,
-    volScalarField& rGasH2O,
-    volScalarField& rGasCO2,
-    volScalarField& rAgg,
-    volScalarField& rKronOH
+    const fvMesh& mesh
 )
     :
     thermo_(thermo),
@@ -56,15 +48,7 @@ Foam::TwoEquationSoot::TwoEquationSoot
 MW_(9),
 N_source(Ns.size(),0.0),
 speciesSources(9),
-Qdot_(Ns.size(),0.0),
-rGro_(rGro),
-rOxO2_(rOxO2),
-rOxOH_(rOxOH),
-rGasH2O_(rGasH2O),
-rGasCO2_(rGasCO2),
-rAgg_(rAgg),
-rKronOH_(rKronOH)
-
+Qdot_(Ns.size(),0.0)
 {
     Info<< "Creating Soot Model Solver \n\n" << endl;
     
@@ -92,7 +76,7 @@ rKronOH_(rKronOH)
 }
 
 // Member functions
-void Foam::TwoEquationSoot::ratesOfChange
+void Foam::SootTarModel::ratesOfChange
 (
     scalar& r_growth,
     scalar& r_oxidation_O2,
@@ -171,18 +155,9 @@ void Foam::TwoEquationSoot::ratesOfChange
     scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
     const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
     scalar r_Kron_OH = 0.36 * Foam::sqrt(cell_T) * cell_As * C_oh; // [kmol/(m^3*s)]
-    
-    rGro_[cellState_.cellNumber()] = r_growth;
-    rOxO2_[cellState_.cellNumber()] = r_oxidation_O2;
-    rOxOH_[cellState_.cellNumber()] = r_oxidation_OH;
-    rGasH2O_[cellState_.cellNumber()] = r_gasification_H2O;
-    rGasCO2_[cellState_.cellNumber()] = r_gasification_CO2;
-    rAgg_[cellState_.cellNumber()] = r_agglomeration;
-    rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
-    
 } //end ratesOfChange
 
-void Foam::TwoEquationSoot::explicitStep
+void Foam::SootTarModel::explicitStep
 (
     const scalarField& Y_initial,
     scalarField& Y_final,
@@ -228,7 +203,7 @@ void Foam::TwoEquationSoot::explicitStep
 
 }// end AdvanceFrozenspecies
 
-void Foam::TwoEquationSoot::advanceToZero
+void Foam::SootTarModel::advanceToZero
 (
     const scalar totalTime,
     scalar& smallSubTime,
@@ -280,7 +255,7 @@ void Foam::TwoEquationSoot::advanceToZero
     Y_current[worstIndex] = 0.0;//Foam::VSMALL;
 }
 
-void Foam::TwoEquationSoot::exhaustLowSpecie
+void Foam::SootTarModel::exhaustLowSpecie
 (
     const scalar totalTime, 
     scalar& smallSubTime,
@@ -314,7 +289,7 @@ void Foam::TwoEquationSoot::exhaustLowSpecie
 
 
 
-void Foam::TwoEquationSoot::correctQdot()
+void Foam::SootTarModel::correctQdot()
 {
 
     // Reset from last time
@@ -336,7 +311,7 @@ void Foam::TwoEquationSoot::correctQdot()
     }    
 }
 
-void Foam::TwoEquationSoot::calcSpecieSources
+void Foam::SootTarModel::calcSpecieSources
 (
     const scalar dt,
     const label nSubSteps,
@@ -498,7 +473,7 @@ void Foam::TwoEquationSoot::calcSpecieSources
 //****************** Public member functions ********************//
 
 
-Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::Qdot()
+Foam::tmp<Foam::volScalarField> Foam::SootTarModel::Qdot()
 {
         tmp<volScalarField> tQdot
         (
@@ -523,7 +498,7 @@ Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::Qdot()
         return tQdot;
 }
 
-Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::sourceN()
+Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceN()
 {
     //tmp<fvScalarMatrix> tfvm(new fvScalarMatrix(N_soot, N_source_dims));
 
@@ -557,7 +532,7 @@ Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::sourceN()
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::sourceY
+Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceY
 (
     const volScalarField& Y_field
 )
@@ -605,7 +580,7 @@ Foam::tmp<Foam::volScalarField> Foam::TwoEquationSoot::sourceY
 // Main function for calculating the sources.
 // Used in transient non-LTS solvers with same dt for 
 // all cells
-void Foam::TwoEquationSoot::updateSources
+void Foam::SootTarModel::updateSources
 (
     const label nSubSteps
 )
