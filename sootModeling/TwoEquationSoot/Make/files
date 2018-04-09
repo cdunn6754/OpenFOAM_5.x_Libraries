@@ -1,0 +1,3 @@
+TwoEquationSoot.C
+
+LIB = $(FOAM_USER_LIBBIN)/libTwoEquationSoot
