@@ -99,6 +99,19 @@ public:
         const scalar Nsoot_current
     );
 
+    // In the sub time steps we need to update just the 
+    // - mass fractions of the frozen species
+    // - mass fraction of the soot
+    // - particle number density
+    // In the cell while leaving the cell thermo state as it is since
+    // it doesnt evolve during the sub dt's anyway.
+    void updateCellState
+    (
+        const scalarField Y_current,
+        const scalar Ysoot_current,
+        const scalar Nsoot_current
+    );
+
     // access functions
     HashTable<scalar> frozenSpecieMassFractions();
     HashTable<scalar> frozenSpeciePPressures();

@@ -43,36 +43,49 @@ Foam::SootTarModel::SootTarModel
     composition_(composition),
     mesh_(mesh),
     cellState_(thermo, composition, Ns, mesh),
-    Y_source_dims(1,0,-1,0,0),// Source dimensions (already multipied by volume)
-    N_source_dims(0,0,-1,0,0),// Source dimensions (already multipied by volume)
-MW_(9),
-N_source(Ns.size(),0.0),
-speciesSources(9),
-Qdot_(Ns.size(),0.0)
+    MW_(),
+    speciesY_(),
+    relevantSpecies_(),
+    speciesSources_(),
+    Qdot_(Ns.size(),0.0)
 {
-    Info<< "Creating Soot Model Solver \n\n" << endl;
-    
-    // Initialize all specie sources to zero
-    speciesSources.insert("SOOT", scalarField(Ns.size(),0.0));
-    speciesSources.insert("C2H2", scalarField(Ns.size(),0.0));
-    speciesSources.insert("O2", scalarField(Ns.size(),0.0));
-    speciesSources.insert("OH", scalarField(Ns.size(),0.0));
-    speciesSources.insert("H2", scalarField(Ns.size(),0.0));
-    speciesSources.insert("CO", scalarField(Ns.size(),0.0));
-    speciesSources.insert("H", scalarField(Ns.size(),0.0));
-    speciesSources.insert("CO2", scalarField(Ns.size(),0.0));
-    speciesSources.insert("H2O", scalarField(Ns.size(),0.0));
+    Info<< "Creating Tar Breakdown  Model Solver \n\n" << endl;
 
-    // set up MW table
-    MW_.insert("SOOT", composition.W(composition.species()["SOOT"]));
-    MW_.insert("C2H2", composition.W(composition.species()["C2H2"]));
-    MW_.insert("O2", composition.W(composition.species()["O2"]));
-    MW_.insert("OH", composition.W(composition.species()["OH"]));
-    MW_.insert("H2", composition.W(composition.species()["H2"]));
-    MW_.insert("CO", composition.W(composition.species()["CO"]));
-    MW_.insert("H", composition.W(composition.species()["H"]));
-    MW_.insert("CO2", composition.W(composition.species()["CO2"]));
-    MW_.insert("H2O", composition.W(composition.species()["H2O"]));
+    // Get the dictionary
+    IOdictionary speciesDict
+    (
+        IOobject
+        (
+            "tarBreakdown",    // dictionary name
+            mesh.time().constant(),     // dict is found in "constant"
+            mesh,                   // registry for the dict
+            IOobject::MUST_READ,    // must exist, otherwise failure
+            IOobject::NO_WRITE      // dict is only read by the solver
+        )
+    );
+
+    Dictionary<word> temp(speciesDict["species"]);
+    relevantSpecies_ = temp;
+
+    const label speciesNumber(relevantSpecies_.size());
+
+    // make sure the default tables are big enough
+    if (speciesNumber > MW_.capacity())
+    {
+        MW_.resize(speciesNumber);
+        speciesY_.resize(speciesNumber);
+        speciesSources_.resize(speciesNumber);
+        
+    }
+
+    // Initialize all hash table entries
+    forAllIter(Dictionary, relevantSpecies_, s)
+    {
+        const word name =relevantSpecies_.toc()[s];
+        speciesSources_.insert(name, scalarField(Ns.size(),0.0));
+        MW_.insert(name, composition.W(composition.species()[name]));
+        speciesY_.insert(name, Pair<scalar>(0.0,0.0));
+    }
 }
 
 // Member functions
@@ -154,13 +167,10 @@ void Foam::SootTarModel::ratesOfChange
 
     scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
     const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
-    scalar r_Kron_OH = 0.36 * Foam::sqrt(cell_T) * cell_As * C_oh; // [kmol/(m^3*s)]
 } //end ratesOfChange
 
 void Foam::SootTarModel::explicitStep
 (
-    const scalarField& Y_initial,
-    scalarField& Y_final,
     const label cellNumber,
     const scalar subdt
 )
@@ -180,26 +190,26 @@ void Foam::SootTarModel::explicitStep
     this->ratesOfChange(r_growth, r_oxidation_O2,r_oxidation_OH, 
     r_gasification_H2O, r_gasification_CO2, r_agglomeration);
 
-    // Explicit step for the Mass Fractions
-    Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
-    Y_final[1] = Y_initial[1] - this->MW_["O2"]*(r_oxidation_O2)*subdt/cell_rho;
-    Y_final[2] = Y_initial[2] - this->MW_["OH"]*(r_oxidation_OH)*subdt/cell_rho;
-    Y_final[3] = Y_initial[3] + 
-        this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
-    Y_final[4] = Y_initial[4] + 
-        this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_H2O)
-        *subdt/cell_rho;
-    Y_final[5] = Y_initial[5] + this->MW_["H"]*(r_oxidation_OH)*subdt/cell_rho;
-    Y_final[6] = Y_initial[6] + 
-        this->MW_["CO2"]*(r_oxidation_O2 - r_gasification_CO2)*subdt/cell_rho;
-    Y_final[7] = Y_initial[7] - this->MW_["H2O"]*(r_gasification_H2O)*subdt/cell_rho;
+    // // Explicit step for the Mass Fractions
+    // Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
+    // Y_final[1] = Y_initial[1] - this->MW_["O2"]*(r_oxidation_O2)*subdt/cell_rho;
+    // Y_final[2] = Y_initial[2] - this->MW_["OH"]*(r_oxidation_OH)*subdt/cell_rho;
+    // Y_final[3] = Y_initial[3] + 
+    //     this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
+    // Y_final[4] = Y_initial[4] + 
+    //     this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_H2O)
+    //     *subdt/cell_rho;
+    // Y_final[5] = Y_initial[5] + this->MW_["H"]*(r_oxidation_OH)*subdt/cell_rho;
+    // Y_final[6] = Y_initial[6] + 
+    //     this->MW_["CO2"]*(r_oxidation_O2 - r_gasification_CO2)*subdt/cell_rho;
+    // Y_final[7] = Y_initial[7] - this->MW_["H2O"]*(r_gasification_H2O)*subdt/cell_rho;
 
-    // Soot Stuff (mass fraction and particle number density)
-    scalar r_soot_consumption = r_oxidation_O2 + r_oxidation_OH + r_gasification_CO2
-        + r_gasification_H2O;
-    Y_final[8] = Y_initial[8] + 
-        this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
-    Y_final[9] = Y_initial[9] - (1.0/cell_rho) * r_agglomeration * subdt;
+    // // Soot Stuff (mass fraction and particle number density)
+    // scalar r_soot_consumption = r_oxidation_O2 + r_oxidation_OH + r_gasification_CO2
+    //     + r_gasification_H2O;
+    // Y_final[8] = Y_initial[8] + 
+    //     this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
+    // Y_final[9] = Y_initial[9] - (1.0/cell_rho) * r_agglomeration * subdt;
 
 }// end AdvanceFrozenspecies
 
@@ -298,7 +308,7 @@ void Foam::SootTarModel::correctQdot()
     // loop through the species sources that have
     // been updated
 
-    forAllIter(HashTable<scalarField>, this->speciesSources, iter)
+    forAllIter(HashTable<scalarField>, this->speciesSources_, iter)
     {
         word specieName = iter.key();
         label specieIndex = this->composition_.species()[specieName];
@@ -315,7 +325,6 @@ void Foam::SootTarModel::calcSpecieSources
 (
     const scalar dt,
     const label nSubSteps,
-    const List<word> frozenSpecieNames,
     const label cellNumber
 )
 {
@@ -333,23 +342,15 @@ void Foam::SootTarModel::calcSpecieSources
     // Grab the current field data for this cell
     // this will update the cellState thermo data too
     this->cellState_.updateCellState(cellNumber);
-        
-    // Local storage of frozen specie mass fractions.
-    Y_current[0] = this->cellState_.frozenSpecieMassFractions()["C2H2"];
-    Y_current[1] = this->cellState_.frozenSpecieMassFractions()["O2"];
-    Y_current[2] = this->cellState_.frozenSpecieMassFractions()["OH"];
-    Y_current[3] = this->cellState_.frozenSpecieMassFractions()["H2"];
-    Y_current[4] = this->cellState_.frozenSpecieMassFractions()["CO"];
-    Y_current[5] = this->cellState_.frozenSpecieMassFractions()["H"];
-    Y_current[6] = this->cellState_.frozenSpecieMassFractions()["CO2"];
-    Y_current[7] = this->cellState_.frozenSpecieMassFractions()["H2O"];
-    Y_current[8] = this->cellState_.Ysoot();
-    Y_current[9] = this->cellState_.Nsoot();
 
+    // Update the species mass fractions
+    forAll(relevantSpecies_, s)
+    {
+        const word name = relevantSpecies_[s];
 
-    // Store a constant version of these initial mass fractions
-    const scalarField Y_initial(Y_current);
-    Y_final = Y_initial;
+        // Both the final and initial/current value
+        speciesY_[name] = cellState_.frozenSpecieMassFractions()[name];
+    }
 
     // Time that integration has progressed in this cell
     scalar integratedTime(0.0);
@@ -357,7 +358,7 @@ void Foam::SootTarModel::calcSpecieSources
     while(integratedTime < dt)
     {
         // Advance, explicitly, local cell copy of species an Ns
-        this->explicitStep(Y_current, Y_final, cellNumber, subdt);
+        this->explicitStep(cellNumber, subdt);
 
         // It's possible that the explicit step may be too long 
         // and we exhaust the supply of a reactant specie
@@ -392,8 +393,7 @@ void Foam::SootTarModel::calcSpecieSources
         // cell state but only frozen species and soot mass fractions,
         // and soot particle number density. 
         //The thermo/cell volume shouldn't be changing anyway.
-        cellState_.updateCellState(Y_current, frozenSpecieNames, 
-        Y_current[8], Y_current[9]);
+        cellState_.updateCellState(Y_current, Y_current[8], Y_current[9]);
 
     } // end while (integratedTime < dt)
 
@@ -436,10 +436,10 @@ void Foam::SootTarModel::calcSpecieSources
     //  we take rho to be constant here so just pull it out.
 
     // Soot number density
-    this->N_source[cellNumber] = 
-        (Y_final[9] - Y_initial[9])*cellRho/dt;
+    // this->N_source[cellNumber] = 
+    //     (Y_final[9] - Y_initial[9])*cellRho/dt;
     // Soot mass fraction
-    this->speciesSources["SOOT"][cellNumber] = 
+    this->speciesSources_["SOOT"][cellNumber] = 
         (Y_final[8] - Y_initial[8])*cellRho/dt;
 
     // //  Other species
@@ -448,23 +448,23 @@ void Foam::SootTarModel::calcSpecieSources
     // and rho is constant over this step
 
     // Reactant species 
-    this->speciesSources["C2H2"][cellNumber] = 
+    this->speciesSources_["C2H2"][cellNumber] = 
         (Y_final[0] - Y_initial[0])*cellRho/dt;
-    this->speciesSources["O2"][cellNumber] = 
+    this->speciesSources_["O2"][cellNumber] = 
         (Y_final[1] - Y_initial[1])*cellRho/dt;
-    this->speciesSources["OH"][cellNumber] = 
+    this->speciesSources_["OH"][cellNumber] = 
         (Y_final[2] - Y_initial[2])*cellRho/dt;
-    this->speciesSources["H2O"][cellNumber] = 
+    this->speciesSources_["H2O"][cellNumber] = 
         (Y_final[7] - Y_initial[7])*cellRho/dt;
     // Product species
-    this->speciesSources["H2"][cellNumber] = 
+    this->speciesSources_["H2"][cellNumber] = 
         (Y_final[3] - Y_initial[3])*cellRho/dt;
-    this->speciesSources["CO"][cellNumber] = 
+    this->speciesSources_["CO"][cellNumber] = 
         (Y_final[4] - Y_initial[4])*cellRho/dt;
-    this->speciesSources["H"][cellNumber] = 
+    this->speciesSources_["H"][cellNumber] = 
         (Y_final[5] - Y_initial[5])*cellRho/dt;
     // Both a product and a reactant
-    this->speciesSources["CO2"][cellNumber] = 
+    this->speciesSources_["CO2"][cellNumber] = 
         (Y_final[6] - Y_initial[6])*cellRho/dt;
 
 }// End calcSpecieSources
@@ -520,13 +520,13 @@ Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceN()
             )
         );
 
-    // get reference to the fvmatrix inside the tmp
-    volScalarField& Nsource = tSourceN.ref();
+    // // get reference to the fvmatrix inside the tmp
+    // volScalarField& Nsource = tSourceN.ref();
 
-    Nsource.primitiveFieldRef() = this->N_source;
+    // Nsource.primitiveFieldRef() = this->N_source;
 
-    // reset field to zero in preparation for next time step.
-    this->N_source = 0.0;
+    // // reset field to zero in preparation for next time step.
+    // this->N_source = 0.0;
 
     return tSourceN;
 }
@@ -560,13 +560,13 @@ Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceY
     // get the reference to volScalarField that tmp is wrapped around
     volScalarField& sourceY = tSourceY.ref();
 
-    if (this->speciesSources.found(specieName))
+    if (this->speciesSources_.found(specieName))
     {
-        sourceY.primitiveFieldRef() = this->speciesSources[specieName];
+        sourceY.primitiveFieldRef() = this->speciesSources_[specieName];
         
         
         // reset field to zero in preparation for next time step.
-        this->speciesSources[specieName] = 0.0;
+        this->speciesSources_[specieName] = 0.0;
         return tSourceY;
     }
     else
@@ -589,18 +589,7 @@ void Foam::SootTarModel::updateSources
     // Currently stores mixture MW field and gas density field.
     this->cellState_.updateCellStateFields(); 
     
-    // Index the species list with the names of the species
-    List<word> frozenSpecieNames(8,"none");
-    frozenSpecieNames[0] = word("C2H2");
-    frozenSpecieNames[1] = word("O2");
-    frozenSpecieNames[2] = word("OH");
-    frozenSpecieNames[3] = word("H2");
-    frozenSpecieNames[4] = word("CO");
-    frozenSpecieNames[5] = word("H");
-    frozenSpecieNames[6] = word("CO2");
-    frozenSpecieNames[7] = word("H2O");
-
-    // Calculate and set the species sources into this->speciesSources table.
+    // Calculate and set the species sources into this->speciesSources_ table.
     // If statement to decide if LTS or transient.
     // In either case get the time step/steps and iterate through cells
     if (fv::localEulerDdt::enabled(this->mesh_))
@@ -613,7 +602,7 @@ void Foam::SootTarModel::updateSources
         forAll(this->mesh_.C(), cellNumber)
         {
             this->calcSpecieSources(1.0/localDtInv[cellNumber], nSubSteps, 
-            frozenSpecieNames, cellNumber);
+             cellNumber);
         }
     }
     // if single time step (i.e. transient simulation)
@@ -625,7 +614,7 @@ void Foam::SootTarModel::updateSources
         forAll(this->mesh_.C(), cellNumber)
         {
             this->calcSpecieSources(dt, nSubSteps, 
-            frozenSpecieNames, cellNumber);
+            cellNumber);
         }
     }
     else

@@ -1,5 +1,5 @@
 EXE_INC = \
-	-I$(USER_LIB_SRC)/sootModeling/CellState/lnInclude \
+	-I$(USER_LIB_SRC)/sootModeling/lnInclude \
 	-I$(USER_LIB_SRC)/thermophysicalModels/sootReactionThermo/lnInclude \
 	-I$(LIB_SRC)/OpenFOAM/lnInclude \
 	-I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
@@ -18,7 +18,5 @@ LIB_LIBS = \
 	 -lfiniteVolume \
 	 -lcompressibleTransportModels \
 	 -lmeshTools \
-	 -lODE \
-	 -L$(USER_LIB_LIBS) \
-	 -lCellState
+	 -lODE 
 	 

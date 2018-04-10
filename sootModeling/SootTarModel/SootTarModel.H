@@ -27,13 +27,6 @@ Description
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// TODO//
-// 1) make the Y_current, etc. scalarField into a hashtable. I think it will make it
-//    much more readable and make some other things easier.
-// 3) related to 2), maybe add a reation class that can hold all of the reactions
-//    and return the reaction rates. That way it would be easier to change reactions
-//    in the future maybe even at runtime.
-
 #ifndef SootTarModel_H
 #define SootTarModel_H
 
@@ -47,8 +40,8 @@ Description
 #include "tmp.H"
 #include "HashTable.H"
 #include "List.H"
+#include "Dictionary.H"
 #include "CellState.H"
-#include "ODESystem.H"
 #include "localEulerDdtScheme.H"
 
 
@@ -74,22 +67,22 @@ class SootTarModel
     const fvMesh& mesh_;
     // CellState object 
     CellState cellState_;
-    // make the proper dimension sets for the sources
-    dimensionSet Y_source_dims; // [kg/(m^3 * s)]
-    dimensionSet N_source_dims; // [1/(m^3 * s)]
 
     // table for relevant specie molecular weights [kg/kmol]
     HashTable<scalar> MW_;
 
-    // table to hold intial specie mass fractions
-    // For each specie an initial value and a final value is stored
-    HashTable<Pair<scalar>> specieY_;
+    // table to hold specie mass fractions
+    // For each species (i.e. table entry)
+    // an initial value and a final value is stored
+    // This enables us to check for negative mass fractions
+    // following the explicit steps before recording the values.
+    HashTable<Pair<scalar>> speciesY_;
 
-    // Soot source fields for two soot transport equation number density
-    scalarField N_source;
+    // List of relevant species for tar breakdown
+    Dictionary<word> relevantSpecies_;
 
     // Sources for the other related species
-    HashTable<scalarField> speciesSources;
+    HashTable<scalarField> speciesSources_;
     
     // Source for enthalpy equation
     scalarField Qdot_;
@@ -116,8 +109,6 @@ class SootTarModel
     // mass fractions at the end of subdt (Y_final). 
     void explicitStep
     (
-        const scalarField& Y_initial,
-        scalarField& Y_final,
         const label cellNumber,
         const scalar subdt
     );
@@ -161,7 +152,6 @@ class SootTarModel
     (
         const scalar dt,
         const label nSubSteps,
-        const List<word> frozenSpecieNames,
         const label cellNumber
     );
 
