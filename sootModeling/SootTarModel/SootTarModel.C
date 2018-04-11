@@ -64,8 +64,48 @@ Foam::SootTarModel::SootTarModel
         )
     );
 
-    Dictionary<word> temp(speciesDict["species"]);
+    wordList temp(speciesDict["species"]);
     relevantSpecies_ = temp;
+
+    // append CO, O2 and H for combustion if not already present
+    List<Switch> combSpecies(3, false); // [CO present, O2 present, H ...]
+    
+    forAll(relevantSpecies_, speciesIdx)
+    {
+        const word name = relevantSpecies_[speciesIdx];
+
+        if (name == "CO")
+        { 
+            combSpecies[0] = true;
+        }
+        if (name == "O2") 
+        {
+            combSpecies[1] = true;
+        }
+        if (name == "H") 
+        {
+            combSpecies[2] = true;
+        }
+    }
+    
+    forAll(combSpecies, s)
+    {
+        if (!combSpecies[s] && s==0) 
+        {
+            relevantSpecies_.append("CO");
+        }
+        if (!combSpecies[s] && s==1) 
+        {
+            relevantSpecies_.append("O2");
+        }
+        if (!combSpecies[s] && s==2) 
+        {
+            relevantSpecies_.append("H");
+        }
+    }
+
+
+    Info << "Tar Model Species: " << nl << relevantSpecies_ << endl;
 
     const label speciesNumber(relevantSpecies_.size());
 
@@ -79,12 +119,22 @@ Foam::SootTarModel::SootTarModel
     }
 
     // Initialize all hash table entries
-    forAllIter(Dictionary, relevantSpecies_, s)
+    forAll(relevantSpecies_, s)
     {
-        const word name =relevantSpecies_.toc()[s];
-        speciesSources_.insert(name, scalarField(Ns.size(),0.0));
-        MW_.insert(name, composition.W(composition.species()[name]));
-        speciesY_.insert(name, Pair<scalar>(0.0,0.0));
+        const word name =relevantSpecies_[s];
+
+        if (! speciesSources_.found(name))
+        {
+            speciesSources_.insert(name, scalarField(Ns.size(),0.0));
+            MW_.insert(name, composition.W(composition.species()[name]));
+            speciesY_.insert(name, threeList(0.0));
+        }
+        else 
+        {
+            FatalErrorInFunction << "Species " << name
+                << " listed twice in tarBreakdown species dictionary." 
+                << relevantSpecies_ << abort(FatalError);
+        }
     }
 }
 
@@ -335,29 +385,33 @@ void Foam::SootTarModel::calcSpecieSources
     // at the end of the sub time step
     scalarField Y_final(Y_current.size(), 0.0);
 
-       
     // set default initial sub time step for this cell
     scalar subdt = dt/nSubSteps;
 
-    // Grab the current field data for this cell
+    // Grab the current main field data for this cell
     // this will update the cellState thermo data too
     this->cellState_.updateCellState(cellNumber);
 
-    // Update the species mass fractions
-    forAll(relevantSpecies_, s)
+    // Update the local speciesY_ mass fractions from CellState
+    forAllIter(HashTable<threeList>, speciesY_, iter)
     {
-        const word name = relevantSpecies_[s];
+        const word name = iter.key();
+        threeList& massFractions = iter();
+        
+        scalar cellMassFraction = cellState_.frozenSpecieMassFractions()[name];
 
-        // Both the final and initial/current value
-        speciesY_[name] = cellState_.frozenSpecieMassFractions()[name];
+        // Set the initial, current and final mass fractions
+        massFractions[0] = cellMassFraction; // initial
+        massFractions[1] = cellMassFraction; // current
+        massFractions[2] = cellMassFraction; // final
     }
 
-    // Time that integration has progressed in this cell
+    // Integrate
     scalar integratedTime(0.0);
     scalar smallTimeStep(0.0);
     while(integratedTime < dt)
     {
-        // Advance, explicitly, local cell copy of species an Ns
+        // Advance, explicitly, local cell copy of species and Ns
         this->explicitStep(cellNumber, subdt);
 
         // It's possible that the explicit step may be too long 
@@ -416,8 +470,8 @@ void Foam::SootTarModel::calcSpecieSources
         Info << "WARNING: Mass Fraction Greater than one" << endl;
         Info << "After sources:\n"  << endl;
         Info << "\nCell number: " << cellNumber << endl;
-        Info << "Y_initial: \n " << Y_initial << endl;
-        Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
+        // Info << "Y_initial: \n " << Y_initial << endl;
+        // Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
     }
 
     if (min(Y_final) < 0.0)
@@ -439,33 +493,33 @@ void Foam::SootTarModel::calcSpecieSources
     // this->N_source[cellNumber] = 
     //     (Y_final[9] - Y_initial[9])*cellRho/dt;
     // Soot mass fraction
-    this->speciesSources_["SOOT"][cellNumber] = 
-        (Y_final[8] - Y_initial[8])*cellRho/dt;
+    // this->speciesSources_["SOOT"][cellNumber] = 
+    //     (Y_final[8] - Y_initial[8])*cellRho/dt;
 
     // //  Other species
     // NOTE: Multiply by density because the transport
     //  equations are d(rho*Y)/dt not just d(Y)/dt
     // and rho is constant over this step
 
-    // Reactant species 
-    this->speciesSources_["C2H2"][cellNumber] = 
-        (Y_final[0] - Y_initial[0])*cellRho/dt;
-    this->speciesSources_["O2"][cellNumber] = 
-        (Y_final[1] - Y_initial[1])*cellRho/dt;
-    this->speciesSources_["OH"][cellNumber] = 
-        (Y_final[2] - Y_initial[2])*cellRho/dt;
-    this->speciesSources_["H2O"][cellNumber] = 
-        (Y_final[7] - Y_initial[7])*cellRho/dt;
-    // Product species
-    this->speciesSources_["H2"][cellNumber] = 
-        (Y_final[3] - Y_initial[3])*cellRho/dt;
-    this->speciesSources_["CO"][cellNumber] = 
-        (Y_final[4] - Y_initial[4])*cellRho/dt;
-    this->speciesSources_["H"][cellNumber] = 
-        (Y_final[5] - Y_initial[5])*cellRho/dt;
-    // Both a product and a reactant
-    this->speciesSources_["CO2"][cellNumber] = 
-        (Y_final[6] - Y_initial[6])*cellRho/dt;
+    // // Reactant species 
+    // this->speciesSources_["C2H2"][cellNumber] = 
+    //     (Y_final[0] - Y_initial[0])*cellRho/dt;
+    // this->speciesSources_["O2"][cellNumber] = 
+    //     (Y_final[1] - Y_initial[1])*cellRho/dt;
+    // this->speciesSources_["OH"][cellNumber] = 
+    //     (Y_final[2] - Y_initial[2])*cellRho/dt;
+    // this->speciesSources_["H2O"][cellNumber] = 
+    //     (Y_final[7] - Y_initial[7])*cellRho/dt;
+    // // Product species
+    // this->speciesSources_["H2"][cellNumber] = 
+    //     (Y_final[3] - Y_initial[3])*cellRho/dt;
+    // this->speciesSources_["CO"][cellNumber] = 
+    //     (Y_final[4] - Y_initial[4])*cellRho/dt;
+    // this->speciesSources_["H"][cellNumber] = 
+    //     (Y_final[5] - Y_initial[5])*cellRho/dt;
+    // // Both a product and a reactant
+    // this->speciesSources_["CO2"][cellNumber] = 
+    //     (Y_final[6] - Y_initial[6])*cellRho/dt;
 
 }// End calcSpecieSources
 

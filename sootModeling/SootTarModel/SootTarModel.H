@@ -44,12 +44,14 @@ Description
 #include "CellState.H"
 #include "localEulerDdtScheme.H"
 
-
 namespace Foam
 {
 
 class SootTarModel
 {
+
+    // Convinience typedef
+    typedef FixedList<scalar,3> threeList;
 
     // true constants
     const scalar rho_s = 2000.; // soot density [kg/m^3]
@@ -73,13 +75,13 @@ class SootTarModel
 
     // table to hold specie mass fractions
     // For each species (i.e. table entry)
-    // an initial value and a final value is stored
-    // This enables us to check for negative mass fractions
-    // following the explicit steps before recording the values.
-    HashTable<Pair<scalar>> speciesY_;
+    // for each specie store a final, current and initial
+    // mass fraction. All three are needed to do explicit stepping
+    // Organized in FixedList as [initial, current, final]
+    HashTable<threeList> speciesY_;
 
     // List of relevant species for tar breakdown
-    Dictionary<word> relevantSpecies_;
+    wordList relevantSpecies_;
 
     // Sources for the other related species
     HashTable<scalarField> speciesSources_;
