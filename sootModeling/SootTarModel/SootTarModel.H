@@ -95,20 +95,17 @@ class SootTarModel
     // Given the current thermophysical/chemical state
     // in a cell determine the reaction rates of the 
     // reactions in the soot mass fraction equation
-    // rates from Kronenburg(2000) and Josephson(2017)
+    // rates from Fletcher(1998) and Xu(2016)
     void ratesOfChange
     (
-        scalar& r_growth,
-        scalar& r_oxidation_O2,
-        scalar& r_oxidation_OH,
-        scalar& r_gasification_H2O,
-        scalar& r_gasification_CO2,
-        scalar& r_agglomeration
+        scalar& r_oxidation,
+        scalar& r_gasification,
+        scalar& r_sootFormation
     );
 
     // For a cell perform a single exlicit step
     // with the provided sub time step to calculate the
-    // mass fractions at the end of subdt (Y_final). 
+    // mass fractions at the end of subdt. 
     void explicitStep
     (
         const label cellNumber,
@@ -147,6 +144,10 @@ class SootTarModel
     // species equations and their enthalpies of formation
     // Very similar how the main combustion chemistry model does it.
     void correctQdot();
+
+    // To be used after explicitStep() to ensure that 
+    // the reactant mass fractions don't go negative.
+    Switch negativeFinalMass();
 
     // Calculate and update specieSources for cell given time step 
     // and for the specified cell

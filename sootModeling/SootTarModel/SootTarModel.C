@@ -45,7 +45,7 @@ Foam::SootTarModel::SootTarModel
     cellState_(thermo, composition, Ns, mesh),
     MW_(),
     speciesY_(),
-    relevantSpecies_(),
+    relevantSpecies_({"TAR", "SOOT", "CO", "CO2", "O2", "H2"}),
     speciesSources_(),
     Qdot_(Ns.size(),0.0)
 {
@@ -136,9 +136,6 @@ Foam::SootTarModel::SootTarModel
     //     }
     // }
 
-
-    relevantSpecies_ = ["TAR", "SOOT", "CO", "CO2", "O2", "H2"]
-
     const label speciesNumber(relevantSpecies_.size());
 
     // make sure the default tables are big enough
@@ -173,12 +170,9 @@ Foam::SootTarModel::SootTarModel
 // Member functions
 void Foam::SootTarModel::ratesOfChange
 (
-    scalar& r_growth,
-    scalar& r_oxidation_O2,
-    scalar& r_oxidation_OH,
-    scalar& r_gasification_H2O,
-    scalar& r_gasification_CO2,
-    scalar& r_agglomeration
+    scalar& r_oxidation,
+    scalar& r_gasification,
+    scalar& r_sootFormation
 )
 {
    
@@ -252,15 +246,12 @@ void Foam::SootTarModel::ratesOfChange
     // scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
     // const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
 
-    // Get the necessary fields from CellState
+    // Get the necessary cell reactant value from CellState
+    // I realize this is redundant it just seems safer this way
     const scalar cell_rho = this->cellState_.thermoProperties()["rho"];
     const scalar cell_T = this->cellState_.thermoProperties()["T"];
     const scalar cell_tar = this->cellState_.frozenSpecieMassFractions()["TAR"];
     const scalar cell_o2 = this->cellState_.frozenSpecieMassFractions()["O2"];
-    const scalar cell_co = this->cellState_.frozenSpecieMassFractions()["CO"];
-    const scalar cell_co2 = this->cellState_.frozenSpecieMassFractions()["CO2"];
-    const scalar cell_h2 = this->cellState_.frozenSpecieMassFractions()["H2"];
-    const scalar cell_soot = this->cellState_.frozenSpecieMassFractions()["SOOT"];
     // Universal R in [kJ/(mol K)]
     const scalar R(8.314e-3);
 
@@ -280,7 +271,7 @@ void Foam::SootTarModel::ratesOfChange
         Foam::exp(-E_ox/(R*cell_T)) / MW_["TAR"];
     r_gasification = cell_rho * cell_tar * A_gas * 
         Foam::exp(-E_gas/(R*cell_T)) / MW_["TAR"];
-    r_coalFormation = cell_rho * cell_tar * A_soot *
+    r_sootFormation = cell_rho * cell_tar * A_soot *
         Foam::exp(-E_soot/(R*cell_T)) / MW_["TAR"];
 
 } //end ratesOfChange
@@ -302,26 +293,25 @@ void Foam::SootTarModel::explicitStep
     // calculate the rates
     this->ratesOfChange(r_oxidation, r_gasification, r_sootFormation);
 
-    // // Explicit step for the Mass Fractions
-    // Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
-    // Y_final[1] = Y_initial[1] - this->MW_["O2"]*(r_oxidation_O2)*subdt/cell_rho;
-    // Y_final[2] = Y_initial[2] - this->MW_["OH"]*(r_oxidation_OH)*subdt/cell_rho;
-    // Y_final[3] = Y_initial[3] + 
-    //     this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
-    // Y_final[4] = Y_initial[4] + 
-    //     this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_H2O)
-    //     *subdt/cell_rho;
-    // Y_final[5] = Y_initial[5] + this->MW_["H"]*(r_oxidation_OH)*subdt/cell_rho;
-    // Y_final[6] = Y_initial[6] + 
-    //     this->MW_["CO2"]*(r_oxidation_O2 - r_gasification_CO2)*subdt/cell_rho;
-    // Y_final[7] = Y_initial[7] - this->MW_["H2O"]*(r_gasification_H2O)*subdt/cell_rho;
+    // reference to make it easier to type this
+    HashTable<threeList>& s(speciesY_);
 
-    // // Soot Stuff (mass fraction and particle number density)
-    // scalar r_soot_consumption = r_oxidation_O2 + r_oxidation_OH + r_gasification_CO2
-    //     + r_gasification_H2O;
-    // Y_final[8] = Y_initial[8] + 
-    //     this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
-    // Y_final[9] = Y_initial[9] - (1.0/cell_rho) * r_agglomeration * subdt;
+    // factor to change rate from [kg/m^3s] (once multilpied with MW)
+    // to an increment in mass fraction => [-] no unit
+    const scalar factor(subdt / cell_rho);
+
+    // Take explicit step
+    s["TAR"][2] = s["TAR"][1] - 
+        MW_["TAR"] * (r_oxidation + r_gasification + r_sootFormation) * factor;
+    // Soot formation
+    s["SOOT"][2] = s["SOOT"][1] + MW_["SOOT"] * r_sootFormation * factor;
+    // Tar cracking/gasification
+    s["CO"][2] = s["CO"][1] + MW_["CO"] * r_gasification * factor;
+    // Tar combustion
+    s["CO2"][2] = s["CO2"][1] + MW_["CO2"] * r_oxidation * factor;
+    s["O2"][2] = s["O2"][1] - MW_["O2"] * r_oxidation * factor;
+    // Both Tar combustion and gasification
+    s["H2"][2] = s["H2"][1] + MW_["H2"] * (r_gasification + r_oxidation) * factor;
 
 }// end explicitStep
 
@@ -410,7 +400,6 @@ void Foam::SootTarModel::exhaustLowSpecie
 }
 
 
-
 void Foam::SootTarModel::correctQdot()
 {
 
@@ -455,6 +444,7 @@ void Foam::SootTarModel::calcSpecieSources
     this->cellState_.updateCellState(cellNumber);
 
     // Update the local speciesY_ mass fractions from CellState
+    // this pulls the state from the main volScalarFields
     forAllIter(HashTable<threeList>, speciesY_, iter)
     {
         const word name = iter.key();
