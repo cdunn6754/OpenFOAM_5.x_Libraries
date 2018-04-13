@@ -291,7 +291,7 @@ void Foam::SootTarModel::explicitStep
     scalar r_sootFormation(0.0);
     
     // calculate the rates
-    this->ratesOfChange(r_oxidation, r_gasification, r_sootFormation);
+    ratesOfChange(r_oxidation, r_gasification, r_sootFormation);
 
     // reference to make it easier to type this
     HashTable<threeList>& s(speciesY_);
@@ -399,7 +399,6 @@ void Foam::SootTarModel::exhaustLowSpecie
     }
 }
 
-
 void Foam::SootTarModel::correctQdot()
 {
 
@@ -420,6 +419,112 @@ void Foam::SootTarModel::correctQdot()
         
         this->Qdot_ -= hF * sourceField;
     }    
+}
+
+Switch Foam::SootTarModel::negativeFinalMassFraction()
+{
+    // Would be best to make this just check the reactants probably.
+    // The products shouldn't be a problem in this regard
+    forAllIter(HashTable<threeList>, speciesY_, iter)
+    {
+        // species name
+        const word name(iter.key());
+        // species mass fraction threeList
+        const threeList& mf(iter());
+
+        if (mf[2] < 0.0) // if the final mf is less than 0.
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void Foam::SootTarModel::exhaustWorstSpecies
+(
+    scalar subdt, 
+    scalar smallTimeStep
+)
+{
+
+    // Get the species that goes to zero first (in time sense)
+    const word name = findWorstSpecies();
+    
+    // Interpolate species mf to zero and apply that to the subdt
+    // to find smallTimeStep. Assumes positive current value [1]
+    // and negative final value [2]
+    scalar fraction = speciesY_[name][1] / 
+        (speciesY_[name][1] - speciesY_[name][2]);
+
+    smallTimeStep = subdt * fraction;    
+    
+    // now reset the final species values to only be integrated
+    // through smallTimeStep instead of subdt as they are now
+    forAllIter(HashTable<threeList>, speciesY_, iter)
+    {
+        // get the mf list for this species
+        threeList mf = iter();
+
+        // Apply interpolation to the species
+        mf[2] = mf[1] + fraction * (mf[2] - mf[1]);
+    }
+}
+
+word Foam::SootTarModel::findWorstSpecies()
+{
+    
+    
+    // Assume that there are more than one negative species
+    DynamicList<word> negativeSpecies;
+
+    // I realize that we looped through already in negativeFinalMassFraction()
+    // Maybe they should be combined in the future.
+    forAllIter(HashTable<threeList>, speciesY_, iter)
+    {
+        // species name
+        const word name(iter.key());
+        // species mass fraction threeList
+        const threeList& mf(iter());
+
+        if (mf[2] < 0.0)
+        {
+            negativeSpecies.append(name);
+        }
+    }
+    
+    if (negativeSpecies.size() == 1)
+    {
+        return negativeSpecies[0];
+    }
+    
+    else // Now we need to find the worst one
+    {
+
+        // The ratio is question is Y_current/(Y_current - Y_final)
+        // where Y_current is assumed to be positve and Y_final negative.
+        // Of the species that have gone negative 
+        // that which has the lowest ratio will be the one 
+        // that goes negative first and is the name that should be returned.
+        scalar smallRatio(1.0);
+        word worstSpeciesName;
+
+        forAll(negativeSpecies, s)
+        {
+            word name = negativeSpecies[s];
+            
+            scalar ratio = speciesY_[name][1]/ 
+                (speciesY_[name][1] - speciesY_[name][2]);
+
+            if (ratio < smallRatio)
+            {
+                smallRatio = ratio;
+                worstSpeciesName = name;
+            }
+        } // end loop through negativeSpecies
+
+        return worstSpeciesName;
+    }
 }
 
 void Foam::SootTarModel::calcSpecieSources
@@ -468,14 +573,13 @@ void Foam::SootTarModel::calcSpecieSources
 
         // It's possible that the explicit step may be too long 
         // and we exhaust the supply of a reactant specie
-        if (min(Y_final) < 0.0)
+        if (negativeFinalMassFraction())
         {
             // Integrates only until the first specie to reach zero does 
             // so. Then calculates how much time that would take, that is
-            // 'smallTimeStep'. Y_final is the whole specie list evolved
-            // from Y_current state over time step smalltimeStep
-            this->exhaustLowSpecie(subdt, smallTimeStep,
-            Y_current, Y_final);
+            // 'smallTimeStep'. It resets the speciesY_ final fields appropriately
+            // as integrated only for smallTimeStep, and not subdt.
+            exhaustWorstSpecies(subdt, smallTimeStep);
                 
             // Record the small time integration
             integratedTime += smallTimeStep;

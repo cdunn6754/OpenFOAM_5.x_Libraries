@@ -147,7 +147,27 @@ class SootTarModel
 
     // To be used after explicitStep() to ensure that 
     // the reactant mass fractions don't go negative.
-    Switch negativeFinalMass();
+    Switch negativeFinalMassFraction();
+
+    // This is called when negativeFinalMassFraction is true. That means
+    // that our explicit sub-step has produced a negative mass fraction.
+    // This will call findWorstSpecies() in the case where there are two
+    // negative mass fractions to determine which became negative first.
+    // 
+    // Then it will determine the smallTimeStep which would result in the
+    // species going to zero only (not negative). It then uses smallTimeStep
+    // to evolve the rest of the species and returns the smallTimeStep 
+    // to the main integrator loop.
+    void exhaustWorstSpecies
+    (
+        scalar subdt, 
+        scalar smallTimeStep
+    );
+
+    // Called when there is a negative final mass fraction in speciesY_
+    // folowing an excessively large explicit step. This will return the 
+    // name of the species that first reaches zero while being integrated.
+    word findWorstSpecies();
 
     // Calculate and update specieSources for cell given time step 
     // and for the specified cell
