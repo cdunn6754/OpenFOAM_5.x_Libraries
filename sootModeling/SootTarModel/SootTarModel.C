@@ -51,61 +51,93 @@ Foam::SootTarModel::SootTarModel
 {
     Info<< "Creating Tar Breakdown  Model Solver \n\n" << endl;
 
-    // Get the dictionary
-    IOdictionary speciesDict
-    (
-        IOobject
-        (
-            "tarBreakdown",    // dictionary name
-            mesh.time().constant(),     // dict is found in "constant"
-            mesh,                   // registry for the dict
-            IOobject::MUST_READ,    // must exist, otherwise failure
-            IOobject::NO_WRITE      // dict is only read by the solver
-        )
-    );
+    // // Get the dictionary
+    // IOdictionary coalPropertiesDict
+    // (
+    //     IOobject
+    //     (
+    //         "coalCloud1Properties",    // dictionary name
+    //         mesh.time().constant(),     // dict is found in "constant"
+    //         mesh,                   // registry for the dict
+    //         IOobject::MUST_READ,    // must exist, otherwise failure
+    //         IOobject::NO_WRITE      // dict is only read by the solver
+    //     )
+    // );
 
-    wordList temp(speciesDict["species"]);
-    relevantSpecies_ = temp;
+    // // Get the actual tar breakdown data
+    // dictionary tarBreakdownDict(coalPropertiesDict.subDict("subModels").subDict("tarBreakdown"));
 
-    // append CO, O2 and H for combustion if not already present
-    List<Switch> combSpecies(3, false); // [CO present, O2 present, H ...]
+    // ITstream tokenStream(tarBreakdownDict.lookup("species"));
+
+    // label idx =tokenStream.tokenIndex();
     
-    forAll(relevantSpecies_, speciesIdx)
-    {
-        const word name = relevantSpecies_[speciesIdx];
+    // Info <<  idx 
+    //     << endl;
 
-        if (name == "CO")
-        { 
-            combSpecies[0] = true;
-        }
-        if (name == "O2") 
-        {
-            combSpecies[1] = true;
-        }
-        if (name == "H") 
-        {
-            combSpecies[2] = true;
-        }
-    }
+    // char temp(tokenStream.readBeginList("List"));
+
+    // idx =tokenStream.tokenIndex();
     
-    forAll(combSpecies, s)
-    {
-        if (!combSpecies[s] && s==0) 
-        {
-            relevantSpecies_.append("CO");
-        }
-        if (!combSpecies[s] && s==1) 
-        {
-            relevantSpecies_.append("O2");
-        }
-        if (!combSpecies[s] && s==2) 
-        {
-            relevantSpecies_.append("H");
-        }
-    }
+    // Info <<  idx 
+    //     << endl;
+
+    // word tempNum(tokenStream);
+
+    // idx =tokenStream.tokenIndex();
+
+    // Info <<  idx
+    //     << endl;
+
+    // FatalErrorInFunction << "END" << abort(FatalError);
+    //relevantSpecies_ = temp;
+
+    // append CO, O2, H2 and TAR for combustion if not already present
+    // List<Switch> combSpecies(4, false); // [CO present, O2, H2, TAR]
+    
+    // forAll(relevantSpecies_, speciesIdx)
+    // {
+    //     const word name = relevantSpecies_[speciesIdx];
+
+    //     if (name == "CO")
+    //     { 
+    //         combSpecies[0] = true;
+    //     }
+    //     if (name == "O2") 
+    //     {
+    //         combSpecies[1] = true;
+    //     }
+    //     if (name == "H2") 
+    //     {
+    //         combSpecies[2] = true;
+    //     }
+    //     if (name == "TAR") 
+    //     {
+    //         combSpecies[3] = true;
+    //     }
+    // }
+    
+    // forAll(combSpecies, s)
+    // {
+    //     if (!combSpecies[s] && s==0) 
+    //     {
+    //         relevantSpecies_.append("CO");
+    //     }
+    //     if (!combSpecies[s] && s==1) 
+    //     {
+    //         relevantSpecies_.append("O2");
+    //     }
+    //     if (!combSpecies[s] && s==2) 
+    //     {
+    //         relevantSpecies_.append("H2");
+    //     }
+    //     if (!combSpecies[s] && s==3) 
+    //     {
+    //         relevantSpecies_.append("TAR");
+    //     }
+    // }
 
 
-    Info << "Tar Model Species: " << nl << relevantSpecies_ << endl;
+    relevantSpecies_ = ["TAR", "SOOT", "CO", "CO2", "O2", "H2"]
 
     const label speciesNumber(relevantSpecies_.size());
 
@@ -149,74 +181,108 @@ void Foam::SootTarModel::ratesOfChange
     scalar& r_agglomeration
 )
 {
-    // get relevant state variables for the cell
-    scalar cell_rho = this->cellState_.thermoProperties()["rho"];
-    scalar cell_T = this->cellState_.thermoProperties()["T"];
-    scalar cell_c2h2 = this->cellState_.frozenSpecieMassFractions()["C2H2"];
-    scalar cell_Ys = this->cellState_.Ysoot();
-    scalar cell_Ns = this->cellState_.Nsoot();
-    // Partial pressures
-    scalar P_co2 = this->cellState_.frozenSpeciePPressures()["CO2"];
-    scalar P_o2 = this->cellState_.frozenSpeciePPressures()["O2"];
-    scalar P_h2o = this->cellState_.frozenSpeciePPressures()["H2O"];
-    scalar P_oh = this->cellState_.frozenSpeciePPressures()["OH"];
-    // Specie concentrations
-    const scalar C_c2h2(cell_rho * cell_c2h2 * (1/this->MW_["C2H2"]));
-    // Molar Mass of soot
-    const scalar M_s = this->MW_["SOOT"];
+   
+    // ############################################################### ///
+    // // get relevant state variables for the cell
+    // scalar cell_rho = this->cellState_.thermoProperties()["rho"];
+    // scalar cell_T = this->cellState_.thermoProperties()["T"];
+    // scalar cell_c2h2 = this->cellState_.frozenSpecieMassFractions()["C2H2"];
+    // scalar cell_Ys = this->cellState_.Ysoot();
+    // scalar cell_Ns = this->cellState_.Nsoot();
+    // // Partial pressures
+    // scalar P_co2 = this->cellState_.frozenSpeciePPressures()["CO2"];
+    // scalar P_o2 = this->cellState_.frozenSpeciePPressures()["O2"];
+    // scalar P_h2o = this->cellState_.frozenSpeciePPressures()["H2O"];
+    // scalar P_oh = this->cellState_.frozenSpeciePPressures()["OH"];
+    // // Specie concentrations
+    // const scalar C_c2h2(cell_rho * cell_c2h2 * (1/this->MW_["C2H2"]));
+    // // Molar Mass of soot
+    // const scalar M_s = this->MW_["SOOT"];
 
-    // Soot particle diameter and surface area for cell
-    // (these are considered uniform in the cell)
-    scalar cell_dp(0.0);
-    scalar cell_As(0.0);
-    if (cell_Ns > Foam::SMALL)
-    {
-        cell_dp = 
-            Foam::pow
-            (
-                (6.*cell_Ys)/(this->pi * this->rho_s * cell_Ns),
-                (1./3.)
-            );
+    // // Soot particle diameter and surface area for cell
+    // // (these are considered uniform in the cell)
+    // scalar cell_dp(0.0);
+    // scalar cell_As(0.0);
+    // if (cell_Ns > Foam::SMALL)
+    // {
+    //     cell_dp = 
+    //         Foam::pow
+    //         (
+    //             (6.*cell_Ys)/(this->pi * this->rho_s * cell_Ns),
+    //             (1./3.)
+    //         );
 
-        cell_As = this->pi * Foam::sqr(cell_dp) *
-            cell_rho * cell_Ns;
-    }
+    //     cell_As = this->pi * Foam::sqr(cell_dp) *
+    //         cell_rho * cell_Ns;
+    // }
       
-    // Set constants from papers
-    // Kronenburg(2000)
-    scalar A_growth(7.5e2);
-    scalar T_growth(12100.0);
-    // Josephson (2017)
-    scalar A_o2(7.98e-1);
-    scalar A_oh(1.89e-3);
-    scalar A_co2(3.06e-17);
-    scalar A_h2o(6.27e4);
-    scalar E_o2(1.77e5);
-    scalar E_co2(5.56e3);
-    scalar E_h20(2.95e5);
-    scalar n_(0.13);
-    scalar R_(8.314); //[kJ/(kmol*K)]
+    // // Set constants from papers
+    // // Kronenburg(2000)
+    // scalar A_growth(7.5e2);
+    // scalar T_growth(12100.0);
+    // // Josephson (2017)
+    // scalar A_o2(7.98e-1);
+    // scalar A_oh(1.89e-3);
+    // scalar A_co2(3.06e-17);
+    // scalar A_h2o(6.27e4);
+    // scalar E_o2(1.77e5);
+    // scalar E_co2(5.56e3);
+    // scalar E_h20(2.95e5);
+    // scalar n_(0.13);
+    // scalar R_(8.314); //[kJ/(kmol*K)]
 
-    // Now calculate the rates
-    // Soot Mass fraction [kmol/(m^3*s)]
-    r_growth = A_growth * Foam::exp(-T_growth/cell_T) * cell_As * C_c2h2;
-    r_oxidation_O2 = Foam::pow(cell_T, -0.5) * 
-        A_o2 * P_o2 * Foam::exp(-E_o2/(R_*cell_T)) *
-        (cell_As/M_s);
-    r_oxidation_OH = Foam::pow(cell_T, -0.5) * A_oh * P_oh * (cell_As/M_s);
+    // // Now calculate the rates
+    // // Soot Mass fraction [kmol/(m^3*s)]
+    // r_growth = A_growth * Foam::exp(-T_growth/cell_T) * cell_As * C_c2h2;
+    // r_oxidation_O2 = Foam::pow(cell_T, -0.5) * 
+    //     A_o2 * P_o2 * Foam::exp(-E_o2/(R_*cell_T)) *
+    //     (cell_As/M_s);
+    // r_oxidation_OH = Foam::pow(cell_T, -0.5) * A_oh * P_oh * (cell_As/M_s);
         
-    r_gasification_CO2 = A_co2 * Foam::pow(P_co2,0.5) * Foam::sqr(cell_T) *
-        Foam::exp(-E_co2/(R_*cell_T)) * (cell_As/M_s);
+    // r_gasification_CO2 = A_co2 * Foam::pow(P_co2,0.5) * Foam::sqr(cell_T) *
+    //     Foam::exp(-E_co2/(R_*cell_T)) * (cell_As/M_s);
        
-    r_gasification_H2O = A_h2o * Foam::pow(P_h2o,n_) * Foam::pow(cell_T, -0.5) *
-        Foam::exp(-E_h20/(R_ * cell_T)) * (cell_As/M_s);
+    // r_gasification_H2O = A_h2o * Foam::pow(P_h2o,n_) * Foam::pow(cell_T, -0.5) *
+    //     Foam::exp(-E_h20/(R_ * cell_T)) * (cell_As/M_s);
     
-    r_agglomeration = 2 * this->Ca * Foam::sqrt(cell_dp) * 
-        Foam::sqrt((6.0 * this->sigma * cell_T)/(this->rho_s)) * 
-        Foam::sqr(cell_rho * cell_Ns);
+    // r_agglomeration = 2 * this->Ca * Foam::sqrt(cell_dp) * 
+    //     Foam::sqrt((6.0 * this->sigma * cell_T)/(this->rho_s)) * 
+    //     Foam::sqr(cell_rho * cell_Ns);
 
-    scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
-    const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
+    // scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
+    // const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
+
+    // Get the necessary fields from CellState
+    const scalar cell_rho = this->cellState_.thermoProperties()["rho"];
+    const scalar cell_T = this->cellState_.thermoProperties()["T"];
+    const scalar cell_tar = this->cellState_.frozenSpecieMassFractions()["TAR"];
+    const scalar cell_o2 = this->cellState_.frozenSpecieMassFractions()["O2"];
+    const scalar cell_co = this->cellState_.frozenSpecieMassFractions()["CO"];
+    const scalar cell_co2 = this->cellState_.frozenSpecieMassFractions()["CO2"];
+    const scalar cell_h2 = this->cellState_.frozenSpecieMassFractions()["H2"];
+    const scalar cell_soot = this->cellState_.frozenSpecieMassFractions()["SOOT"];
+    // Universal R in [kJ/(mol K)]
+    const scalar R(8.314e-3);
+
+    // All from Fletcher Revision paper 1998
+    const scalar A_ox(6.77e5);   //[m^3/(kg s)]
+    const scalar A_gas(9.77e10); //[1/s]
+    const scalar A_soot(5.02e8);   //[1/s]
+    // Activation Energies all in [kJ/mol]
+    const scalar E_ox(52.3);
+    const scalar E_gas(286.9);
+    const scalar E_soot(198.9);
+
+    // Rates based on current cell state
+    // modified from [kg_tar /(m^3*s)] to [kmol/(m^3*s)] 
+    // by division with the molar mass of tar
+    r_oxidation = cell_rho * (cell_tar * cell_o2) * A_ox * 
+        Foam::exp(-E_ox/(R*cell_T)) / MW_["TAR"];
+    r_gasification = cell_rho * cell_tar * A_gas * 
+        Foam::exp(-E_gas/(R*cell_T)) / MW_["TAR"];
+    r_coalFormation = cell_rho * cell_tar * A_soot *
+        Foam::exp(-E_soot/(R*cell_T)) / MW_["TAR"];
+
 } //end ratesOfChange
 
 void Foam::SootTarModel::explicitStep
@@ -229,16 +295,12 @@ void Foam::SootTarModel::explicitStep
     const scalar cell_rho = this->cellState_.thermoProperties()["rho"];
     
     // rates for soot mass fraction reactions [kmol/(m^3 * s)]
-    scalar r_growth(0.0); // growth of soot particle from c2h2 not nucleation
-    scalar r_oxidation_O2(0.0);
-    scalar r_oxidation_OH(0.0);
-    scalar r_gasification_H2O(0.0);    
-    scalar r_gasification_CO2(0.0);
-    // rate for soot particle number density reaction[1/(m^3 * s)] (not used here)
-    scalar r_agglomeration(0.0);
+    scalar r_oxidation(0.0);
+    scalar r_gasification(0.0);
+    scalar r_sootFormation(0.0);
+    
     // calculate the rates
-    this->ratesOfChange(r_growth, r_oxidation_O2,r_oxidation_OH, 
-    r_gasification_H2O, r_gasification_CO2, r_agglomeration);
+    this->ratesOfChange(r_oxidation, r_gasification, r_sootFormation);
 
     // // Explicit step for the Mass Fractions
     // Y_final[0] = Y_initial[0] - this->MW_["C2H2"]*(r_growth)*subdt/cell_rho;
@@ -261,7 +323,7 @@ void Foam::SootTarModel::explicitStep
     //     this->MW_["SOOT"]*(2*r_growth - r_soot_consumption)*subdt/cell_rho;
     // Y_final[9] = Y_initial[9] - (1.0/cell_rho) * r_agglomeration * subdt;
 
-}// end AdvanceFrozenspecies
+}// end explicitStep
 
 void Foam::SootTarModel::advanceToZero
 (
