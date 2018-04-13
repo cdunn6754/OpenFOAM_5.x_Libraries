@@ -39,6 +39,9 @@ namespace Foam
 class CellState
 {
 
+    // Convenience typedef
+    typedef FixedList<scalar,3> threeList;
+
     const psiReactionThermo& thermo_;
     const basicSpecieMixture& composition_;
     const fvMesh& mesh_;
@@ -91,6 +94,7 @@ public:
     // - particle number density
     // In the cell while leaving the cell thermo state as it is since
     // it doesnt evolve during the sub dt's anyway.
+    // This overload is used in the TwoEquationSootModel.
     void updateCellState
     (
         const scalarField Y_current,
@@ -100,16 +104,13 @@ public:
     );
 
     // In the sub time steps we need to update just the 
-    // - mass fractions of the frozen species
-    // - mass fraction of the soot
-    // - particle number density
+    // species mass fractions from the integration results
     // In the cell while leaving the cell thermo state as it is since
     // it doesnt evolve during the sub dt's anyway.
+    // This overload is used for the SootTarModel class.
     void updateCellState
     (
-        const scalarField Y_current,
-        const scalar Ysoot_current,
-        const scalar Nsoot_current
+        const HashTable<threeList>& specieY_
     );
 
     // access functions

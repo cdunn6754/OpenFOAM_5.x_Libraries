@@ -174,6 +174,23 @@ void Foam::CellState::updateCellState
     
 }
 
+void Foam::CellState::updateCellState
+(
+    const HashTable<threeList>& specieY_
+)
+{
+    forAllConstIter(HashTable<threeList>, specieY_, iter)
+    {
+        const threeList mf = iter();
+        const word name = iter.key();
+
+        frozenSpecieMassFractions[name] = mf[2];
+
+        // Not implementing the partial pressure and mol fraction stuff
+        // because we dont use that in SootTarModel.
+    }
+}
+
 Foam::HashTable<scalar> Foam::CellState::frozenSpecieMassFractions()
 {
     return frozenSpecieMassFractions_;
