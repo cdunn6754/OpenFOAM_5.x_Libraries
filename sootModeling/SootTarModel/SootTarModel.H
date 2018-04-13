@@ -50,7 +50,7 @@ namespace Foam
 class SootTarModel
 {
 
-    // Convinience typedef
+    // Convenience typedef
     typedef FixedList<scalar,3> threeList;
 
     // true constants
@@ -79,9 +79,6 @@ class SootTarModel
     // mass fraction. All three are needed to do explicit stepping
     // Organized in FixedList as [initial, current, final]
     HashTable<threeList> speciesY_;
-
-    // List of relevant species for tar breakdown
-    wordList relevantSpecies_;
 
     // Sources for the other related species
     HashTable<scalarField> speciesSources_;
@@ -112,34 +109,6 @@ class SootTarModel
         const scalar subdt
     );
 
-    // In the likely event that the required explicit timestep
-    // leads to negative mass fractions just advance the problem specie to 0.0.
-    // Interpolate that change to the other species and the soot
-    // variables then find the corresponding time as well (smallSubTime)
-    // This function is called by the function exhaustLowSpecie
-    void advanceToZero
-    (
-        const scalar totalTime,
-        scalar& smallSubTime,
-        const scalarField& Y_initial,
-        scalarField& Y_current
-    );
-
-    // If there are negative mass fractions after explicit integration
-    // This will call advanceToZero (multiple times if need be) to correct that
-    // It returns in the references:
-    // - the corresponding smallSubtime step needed to make the worst 
-    //   problem specie reach zero but not go negative.
-    // - the corresponding other species in Y_final. As though they had been 
-    //   evolved with timestep smallSubTime.
-    void exhaustLowSpecie
-    (
-        const scalar totalTime,
-        scalar& smallSubTime,
-        const scalarField& Y_initial,
-        scalarField& Y_final
-    );
-
     // Correct the soot model Qdot based on the sources for the
     // species equations and their enthalpies of formation
     // Very similar how the main combustion chemistry model does it.
@@ -160,14 +129,26 @@ class SootTarModel
     // to the main integrator loop.
     void exhaustWorstSpecies
     (
-        scalar subdt, 
-        scalar smallTimeStep
+        const scalar& subdt, 
+        scalar& smallTimeStep
     );
 
     // Called when there is a negative final mass fraction in speciesY_
     // folowing an excessively large explicit step. This will return the 
     // name of the species that first reaches zero while being integrated.
     word findWorstSpecies();
+
+    // Following the successful comletion of an explicit step
+    // update the current mass fraction to equal the final mass fraction
+    void updateSpeciesMassFractions();
+
+    // Following the successful completion of an explicit step
+    // the speciesY_ table will be updated this function uses
+    // it to update the speciesSources table.
+    void setSpeciesSources
+    (
+        const scalar& dt
+    );
 
     // Calculate and update specieSources for cell given time step 
     // and for the specified cell

@@ -43,10 +43,9 @@ Foam::SootTarModel::SootTarModel
     composition_(composition),
     mesh_(mesh),
     cellState_(thermo, composition, Ns, mesh),
-    MW_(),
-    speciesY_(),
-    relevantSpecies_({"TAR", "SOOT", "CO", "CO2", "O2", "H2"}),
-    speciesSources_(),
+    MW_(6),
+    speciesY_(6),
+    speciesSources_(6),
     Qdot_(Ns.size(),0.0)
 {
     Info<< "Creating Tar Breakdown  Model Solver \n\n" << endl;
@@ -90,62 +89,9 @@ Foam::SootTarModel::SootTarModel
 
     // FatalErrorInFunction << "END" << abort(FatalError);
     //relevantSpecies_ = temp;
-
-    // append CO, O2, H2 and TAR for combustion if not already present
-    // List<Switch> combSpecies(4, false); // [CO present, O2, H2, TAR]
     
-    // forAll(relevantSpecies_, speciesIdx)
-    // {
-    //     const word name = relevantSpecies_[speciesIdx];
-
-    //     if (name == "CO")
-    //     { 
-    //         combSpecies[0] = true;
-    //     }
-    //     if (name == "O2") 
-    //     {
-    //         combSpecies[1] = true;
-    //     }
-    //     if (name == "H2") 
-    //     {
-    //         combSpecies[2] = true;
-    //     }
-    //     if (name == "TAR") 
-    //     {
-    //         combSpecies[3] = true;
-    //     }
-    // }
-    
-    // forAll(combSpecies, s)
-    // {
-    //     if (!combSpecies[s] && s==0) 
-    //     {
-    //         relevantSpecies_.append("CO");
-    //     }
-    //     if (!combSpecies[s] && s==1) 
-    //     {
-    //         relevantSpecies_.append("O2");
-    //     }
-    //     if (!combSpecies[s] && s==2) 
-    //     {
-    //         relevantSpecies_.append("H2");
-    //     }
-    //     if (!combSpecies[s] && s==3) 
-    //     {
-    //         relevantSpecies_.append("TAR");
-    //     }
-    // }
-
-    const label speciesNumber(relevantSpecies_.size());
-
-    // make sure the default tables are big enough
-    if (speciesNumber > MW_.capacity())
-    {
-        MW_.resize(speciesNumber);
-        speciesY_.resize(speciesNumber);
-        speciesSources_.resize(speciesNumber);
-        
-    }
+    // list of relevant species names
+    wordList relevantSpecies_({"TAR", "SOOT", "CO", "CO2", "O2", "H2"});
 
     // Initialize all hash table entries
     forAll(relevantSpecies_, s)
@@ -158,7 +104,7 @@ Foam::SootTarModel::SootTarModel
             MW_.insert(name, composition.W(composition.species()[name]));
             speciesY_.insert(name, threeList(0.0));
         }
-        else 
+        else // Pretty much deprecated, don't worry about it.
         {
             FatalErrorInFunction << "Species " << name
                 << " listed twice in tarBreakdown species dictionary." 
@@ -315,90 +261,6 @@ void Foam::SootTarModel::explicitStep
 
 }// end explicitStep
 
-void Foam::SootTarModel::advanceToZero
-(
-    const scalar totalTime,
-    scalar& smallSubTime,
-    const scalarField& Y_initial,
-    scalarField& Y_current
-)
-{
-    // change in each field over totalTime
-    scalarField Y_change = Y_initial - Y_current;
-
-    
-    label worstIndex(-1);
-    scalar worstCurrent(0.0);
-    // Find the most negative mass fraction and it's index
-    forAll(Y_current, specieIndex)
-    {
-        if (Y_current[specieIndex] < worstCurrent)
-        {
-            worstCurrent = Y_current[specieIndex];
-            worstIndex = specieIndex;
-        }
-    }
-    
-    if (worstIndex == -1)
-      {
-	FatalErrorInFunction << "No negative mass fractions." << abort(FatalError);
-      }
-
-    // grab the value of the worst specie and the beginning of the cfd ts
-    scalar worstInitial = Y_initial[worstIndex];
-
-    // Interpolate the problem specie to zero. Apply that interpolation
-    // to the evolution of the other species as well.
-     
-    // assume it's decreasing and worstInitial is positive. Find the total change
-    scalar totalChange =  worstInitial - worstCurrent;
-    scalar fraction = worstInitial/totalChange;
-
-    // Now apply that interpolation to the entire system
-    Y_current = Y_initial -  Y_change*fraction;
-    smallSubTime= totalTime*fraction;
-
-    if (smallSubTime < 0.0)
-      {
-	FatalErrorInFunction << "Negative Time Step" << abort(FatalError);
-      }
-
-    // Just make sure that the problem specie is pretty much zero
-    Y_current[worstIndex] = 0.0;//Foam::VSMALL;
-}
-
-void Foam::SootTarModel::exhaustLowSpecie
-(
-    const scalar totalTime, 
-    scalar& smallSubTime,
-    const scalarField& Y_initial,
-    scalarField& Y_final
-)
-{
-    smallSubTime = 0.0;
-    // TODO: this whole function can be done better with a rewrite of 
-    // advanceToZero(). It just fixes the most negative value. That leaves
-    // open the possibility that another negative number wont be fixed 
-    // depending on the initial values. What should be done is to fix
-    // the specie that goes to zero first, not the one that goes the
-    // most negative. They don't have the same rates.
-    // For now just do an initial correction and then correct
-    // more over the new timestep if there are still negative values
-    // after the first advancetoZero call.
-    this->advanceToZero(totalTime, smallSubTime, Y_initial, Y_final);
-
-    // check to see that we got it otherwise take care of other
-    // negative mass fractions
-    bool allPositive = (min(Y_final) >= 0.0);
-    scalar newDt(0.0);
-    while (!allPositive)
-    {	
-        this->advanceToZero(smallSubTime, newDt, Y_initial, Y_final);
-        smallSubTime = newDt;
-        allPositive = (min(Y_final) >= 0.0);
-    }
-}
-
 void Foam::SootTarModel::correctQdot()
 {
 
@@ -443,8 +305,8 @@ Switch Foam::SootTarModel::negativeFinalMassFraction()
 
 void Foam::SootTarModel::exhaustWorstSpecies
 (
-    scalar subdt, 
-    scalar smallTimeStep
+    const scalar& subdt,
+    scalar& smallTimeStep
 )
 {
 
@@ -464,10 +326,23 @@ void Foam::SootTarModel::exhaustWorstSpecies
     forAllIter(HashTable<threeList>, speciesY_, iter)
     {
         // get the mf list for this species
-        threeList mf = iter();
+        threeList& mf = iter();
 
         // Apply interpolation to the species
         mf[2] = mf[1] + fraction * (mf[2] - mf[1]);
+    }
+    
+    
+    if 
+    (
+        (Foam::cmptMag(speciesY_[name][2]) >= Foam::SMALL)
+        or
+        (speciesY_[name][2] < 0.0)
+    )
+    {
+        FatalErrorInFunction << "Expected " 
+            <<  name << " mass fraction of 0 but found it to be " 
+            << speciesY_[name][2] << "." << abort(FatalError);
     }
 }
 
@@ -527,6 +402,37 @@ word Foam::SootTarModel::findWorstSpecies()
     }
 }
 
+void Foam::SootTarModel::updateSpeciesMassFractions()
+{
+
+    forAllIter(HashTable<threeList>, speciesY_, iter)
+    {
+        threeList& mf = iter();
+        mf[1] = mf[2];
+    }
+    
+}
+
+void Foam::SootTarModel::setSpeciesSources
+(
+    const scalar& dt
+)
+{
+    forAllIter(HashTable<threeList>, speciesY_, iter)
+    {
+        const word name = iter.key();
+        const threeList mf = iter();
+        const label cellNumber = cellState_.cellNumber();
+        const scalar cellRho = cellState_.thermoProperties()["rho"];
+
+        // Note: density multiplication because the transport
+        // equations are d(rho Y)/dt and rho is constant
+        // in this context.
+        speciesSources_[name][cellNumber] = 
+            (mf[2] - mf[0]) * (cellRho/dt);
+    }
+}
+
 void Foam::SootTarModel::calcSpecieSources
 (
     const scalar dt,
@@ -581,9 +487,7 @@ void Foam::SootTarModel::calcSpecieSources
             // as integrated only for smallTimeStep, and not subdt.
             exhaustWorstSpecies(subdt, smallTimeStep);
                 
-            // Record the small time integration
             integratedTime += smallTimeStep;
-            // Set subdt for the next time step
             subdt = subdt - smallTimeStep;
         }
         else
@@ -595,87 +499,24 @@ void Foam::SootTarModel::calcSpecieSources
             subdt = dt/nSubSteps;
         }
 
-        // Update both the soot variables and the frozen species for
-        // the next iteration
-        Y_current = Y_final;
-
-        // before the rates are recalculated on the next iteration update the
-        // cell state but only frozen species and soot mass fractions,
-        // and soot particle number density. 
-        //The thermo/cell volume shouldn't be changing anyway.
-        cellState_.updateCellState(Y_current, Y_current[8], Y_current[9]);
+        // set current mass fractions to final
+        updateSpeciesMassFractions();
+        
+        // Update cellState mass fractions
+        cellState_.updateCellState(speciesY_);
 
     } // end while (integratedTime < dt)
 
-    // density in this cell (assumed constant over these steps)
-    const scalar cellRho = this->cellState_.thermoProperties()["rho"];
-
-    if  // There is mass fraction exceeding one
-        (
-            Y_final[0] > 1.0 ||
-            Y_final[1] > 1.0 ||
-            Y_final[2] > 1.0 ||
-            Y_final[3] > 1.0 ||
-            Y_final[4] > 1.0 ||
-            Y_final[5] > 1.0 ||
-            Y_final[6] > 1.0 ||
-            Y_final[7] > 1.0 ||
-            Y_final[8] > 1.0
-        )
-    {
-        Info << "WARNING: Mass Fraction Greater than one" << endl;
-        Info << "After sources:\n"  << endl;
-        Info << "\nCell number: " << cellNumber << endl;
-        // Info << "Y_initial: \n " << Y_initial << endl;
-        // Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
-    }
-
-    if (min(Y_final) < 0.0)
+    // If mass fractions are negative here then there is a 
+    // problem.
+    if (negativeFinalMassFraction()) 
     {
         FatalErrorInFunction 
-            << "Negative mass fraction after soot model integration"
+            << "Negative species mass fraction detected."
                 << abort(FatalError);
     }
 
-    // Now set the source terms given the changes in soot mass fraction,
-    // frozen specie mass fraction  and soot number density. These 
-    // source terms will be used when the respective transport
-    // equations are solved
-    // NOTE: Multiply by density because the transport
-    //  equations are d(rho*Y)/dt not just d(Y)/dt, 
-    //  we take rho to be constant here so just pull it out.
-
-    // Soot number density
-    // this->N_source[cellNumber] = 
-    //     (Y_final[9] - Y_initial[9])*cellRho/dt;
-    // Soot mass fraction
-    // this->speciesSources_["SOOT"][cellNumber] = 
-    //     (Y_final[8] - Y_initial[8])*cellRho/dt;
-
-    // //  Other species
-    // NOTE: Multiply by density because the transport
-    //  equations are d(rho*Y)/dt not just d(Y)/dt
-    // and rho is constant over this step
-
-    // // Reactant species 
-    // this->speciesSources_["C2H2"][cellNumber] = 
-    //     (Y_final[0] - Y_initial[0])*cellRho/dt;
-    // this->speciesSources_["O2"][cellNumber] = 
-    //     (Y_final[1] - Y_initial[1])*cellRho/dt;
-    // this->speciesSources_["OH"][cellNumber] = 
-    //     (Y_final[2] - Y_initial[2])*cellRho/dt;
-    // this->speciesSources_["H2O"][cellNumber] = 
-    //     (Y_final[7] - Y_initial[7])*cellRho/dt;
-    // // Product species
-    // this->speciesSources_["H2"][cellNumber] = 
-    //     (Y_final[3] - Y_initial[3])*cellRho/dt;
-    // this->speciesSources_["CO"][cellNumber] = 
-    //     (Y_final[4] - Y_initial[4])*cellRho/dt;
-    // this->speciesSources_["H"][cellNumber] = 
-    //     (Y_final[5] - Y_initial[5])*cellRho/dt;
-    // // Both a product and a reactant
-    // this->speciesSources_["CO2"][cellNumber] = 
-    //     (Y_final[6] - Y_initial[6])*cellRho/dt;
+    setSpeciesSources(dt);
 
 }// End calcSpecieSources
 
