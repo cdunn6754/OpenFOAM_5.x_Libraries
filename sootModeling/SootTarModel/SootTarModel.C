@@ -239,25 +239,30 @@ void Foam::SootTarModel::explicitStep
     // calculate the rates
     ratesOfChange(r_oxidation, r_gasification, r_sootFormation);
 
-    // reference to make it easier to type this
     HashTable<threeList>& s(speciesY_);
 
     // factor to change rate from [kg/m^3s] (once multilpied with MW)
     // to an increment in mass fraction => [-] no unit
     const scalar factor(subdt / cell_rho);
 
-    // Take explicit step
+    // There are three reactions in this model and TAR is assumed to be Pyrene (C16H10)
+    // 1. Soot Formation
+    //     1 TAR -> 29.3 SOOT (where SOOT == C, here only mass is conserved)
+    // 2. Combustion
+    //    1 TAR -> 16 CO2 + 5 H2 (here both mass and elements are conserved)
+    // 3. Cracking
+    //    1 TAR -> 7.065 CO + 2.208 H2 (here both mass and C/H ratio are conserved)
+    
+    // Reactants
     s["TAR"][2] = s["TAR"][1] - 
         MW_["TAR"] * (r_oxidation + r_gasification + r_sootFormation) * factor;
-    // Soot formation
-    s["SOOT"][2] = s["SOOT"][1] + MW_["SOOT"] * r_sootFormation * factor;
-    // Tar cracking/gasification
-    s["CO"][2] = s["CO"][1] + MW_["CO"] * r_gasification * factor;
-    // Tar combustion
-    s["CO2"][2] = s["CO2"][1] + MW_["CO2"] * r_oxidation * factor;
-    s["O2"][2] = s["O2"][1] - MW_["O2"] * r_oxidation * factor;
-    // Both Tar combustion and gasification
-    s["H2"][2] = s["H2"][1] + MW_["H2"] * (r_gasification + r_oxidation) * factor;
+    s["O2"][2] = s["O2"][1] - MW_["O2"] * 16.0 * r_oxidation * factor;
+    // Products
+    s["SOOT"][2] = s["SOOT"][1] + MW_["SOOT"] * 29.3 * r_sootFormation * factor;
+    s["CO"][2] = s["CO"][1] + MW_["CO"] * 7.065 * r_gasification * factor;
+    s["CO2"][2] = s["CO2"][1] + MW_["CO2"] * 16.0 * r_oxidation * factor;
+    s["H2"][2] = s["H2"][1] + MW_["H2"] * 
+        (2.208 * r_gasification + 5 * r_oxidation) * factor;
 
 }// end explicitStep
 
@@ -270,16 +275,16 @@ void Foam::SootTarModel::correctQdot()
     // loop through the species sources that have
     // been updated
 
-    forAllIter(HashTable<scalarField>, this->speciesSources_, iter)
+    forAllIter(HashTable<scalarField>, speciesSources_, iter)
     {
         word specieName = iter.key();
-        label specieIndex = this->composition_.species()[specieName];
+        label specieIndex = composition_.species()[specieName];
         scalarField& sourceField = iter(); //[kg/(m^3 * s)]
 
         // get the enthalpy of formation for this specie
-        scalar hF = this->composition_.Hc(specieIndex);
+        scalar hF = composition_.Hc(specieIndex);
         
-        this->Qdot_ -= hF * sourceField;
+        Qdot_ -= hF * sourceField;
     }    
 }
 
@@ -428,8 +433,7 @@ void Foam::SootTarModel::setSpeciesSources
         // Note: density multiplication because the transport
         // equations are d(rho Y)/dt and rho is constant
         // in this context.
-        speciesSources_[name][cellNumber] = 
-            (mf[2] - mf[0]) * (cellRho/dt);
+        speciesSources_[name][cellNumber] = (mf[2] - mf[0]) * (cellRho/dt);
     }
 }
 
