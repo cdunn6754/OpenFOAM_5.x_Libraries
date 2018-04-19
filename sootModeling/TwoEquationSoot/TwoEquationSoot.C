@@ -440,7 +440,8 @@ void Foam::TwoEquationSoot::calcSpecieSources
     {
         Info << "WARNING: Mass Fraction Greater than one" << endl;
         Info << "After sources:\n"  << endl;
-        Info << "\nCell number: " << cellNumber << endl;
+        Info << "Cell number: " << cellNumber << "; Cell location: "
+            << mesh_.C()[cellNumber] << endl;
         Info << "Y_initial: \n " << Y_initial << endl;
         Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
     }
