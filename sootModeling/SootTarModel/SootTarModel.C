@@ -42,7 +42,15 @@ Foam::SootTarModel::SootTarModel
     thermo_(thermo),
     composition_(composition),
     mesh_(mesh),
-    cellState_(thermo, composition, Ns, mesh),
+    cellState_
+    (
+        thermo,
+        composition,
+        Ns,
+        mesh,
+        wordList({"TAR", "SOOT", "CO", "CO2", "O2", "H2"}),
+        wordList()
+    ),
     MW_(6),
     speciesY_(6),
     speciesSources_(6),
@@ -91,7 +99,7 @@ Foam::SootTarModel::SootTarModel
     //relevantSpecies_ = temp;
     
     // list of relevant species names
-    wordList relevantSpecies_({"TAR", "SOOT", "CO", "CO2", "O2", "H2"});
+    const wordList relevantSpecies_({"TAR", "SOOT", "CO", "CO2", "O2", "H2"});
 
     // Initialize all hash table entries
     forAll(relevantSpecies_, s)
@@ -649,7 +657,7 @@ void Foam::SootTarModel::updateSources
     // In either case get the time step/steps and iterate through cells
     if (fv::localEulerDdt::enabled(this->mesh_))
     {
-        Info << "Operating soot model in LTS mode" << endl;
+        Info << "Operating tar model in LTS mode" << endl;
         // get the LTS timsteps inverses (if there is a function
         // that just gets the time steps then use that
         const scalarField& localDtInv = 
@@ -663,7 +671,7 @@ void Foam::SootTarModel::updateSources
     // if single time step (i.e. transient simulation)
     else if (! fv::localEulerDdt::enabled(this->mesh_))
     {
-        Info << "Operating soot model in transient mode" << endl;
+        Info << "Operating tar model in transient mode" << endl;
         // get global time step
         const scalar& dt = this->mesh_.time().deltaTValue();
         forAll(this->mesh_.C(), cellNumber)
