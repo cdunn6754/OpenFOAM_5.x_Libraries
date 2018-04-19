@@ -67,12 +67,32 @@ class CellState
 
 public:
 
+    // Original constructor, used with TwoEquationSoot model.
+    // This hard-codes a list of species to populate the 
+    // frozenSpecieMassFractions_ and frozenSpeciePPressures_ lists.
+    // Less flexible than subsequent constructor. Should be replaced eventually
+    // but that will necessitate making changes to TES model that I don't want
+    // to make right now.
     CellState
     (
         const psiReactionThermo& thermo,
         const basicSpecieMixture& composition,
         const scalarField& Ns,
         const fvMesh& mesh
+    );
+    
+    // Alternative constructor to eventually replace the original above. 
+    // Similar to original but can now pass in lists which specifiy the names
+    // of species that CellState should track the massfractions and partialPressures
+    // for.
+    CellState
+    (
+        const psiReactionThermo& thermo,
+        const basicSpecieMixture& composition,
+        const scalarField& Ns,
+        const fvMesh& mesh,
+        const wordList speciesMassFractions,
+        const wordList speciesPartialPressures
     );
 
     // When a new cfd time step is reached we need

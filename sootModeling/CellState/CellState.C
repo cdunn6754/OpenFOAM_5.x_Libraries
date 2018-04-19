@@ -30,7 +30,7 @@ Description
 
 #include "CellState.H"
 
-// Constructor
+// Constructors
 Foam::CellState::CellState
 (
     const psiReactionThermo& thermo,
@@ -71,6 +71,63 @@ Foam::CellState::CellState
     frozenSpeciePPressures_.insert("H2O", 0.0);
     frozenSpeciePPressures_.insert("CO2", 0.0);
 
+    thermoProperties_.insert("rho", 0.0);
+    thermoProperties_.insert("T", 0.0);
+    thermoProperties_.insert("p",0.0);
+
+    // Calculate the density and mixture molecular weight fields
+    updateCellStateFields();
+}
+
+
+Foam::CellState::CellState
+(
+    const psiReactionThermo& thermo,
+    const basicSpecieMixture& composition,
+    const scalarField& Ns,
+    const fvMesh& mesh,
+    const wordList speciesMassFractions,
+    const wordList speciesPartialPressures
+)
+    :
+    thermo_(thermo),
+    composition_(composition),
+    mesh_(mesh),
+    Ns_(Ns),
+    molarMassField_(Ns.size(),0.0),
+    densityField_(Ns.size(),0.0),
+    frozenSpecieMassFractions_(8),
+    frozenSpeciePPressures_(4),
+    thermoProperties_(3),
+    Ysoot_(0.0),
+    Nsoot_(0.0),
+    W_(0.0),
+    cellVolume_(0.0),
+    cellNumber_(0.0),
+    cellCenter_(0.0,0.0,0.0)
+
+{
+
+    // Instantiate mass fraction and partial pressure table entries
+    forAll(speciesMassFractions, specieIdx)
+    {
+        frozenSpecieMassFractions_.insert
+            (
+                speciesMassFractions[specieIdx],
+                0.0
+            );
+    }
+
+    forAll(speciesPartialPressures, specieIdx)
+    {
+        frozenSpeciePPressures_.insert
+            (
+                speciesPartialPressures[specieIdx],
+                0.0
+            );
+    }
+
+    // These thermo properties are always included
     thermoProperties_.insert("rho", 0.0);
     thermoProperties_.insert("T", 0.0);
     thermoProperties_.insert("p",0.0);
@@ -184,7 +241,7 @@ void Foam::CellState::updateCellState
         const threeList mf = iter();
         const word name = iter.key();
 
-        frozenSpecieMassFractions[name] = mf[2];
+        frozenSpecieMassFractions_[name] = mf[2];
 
         // Not implementing the partial pressure and mol fraction stuff
         // because we dont use that in SootTarModel.
