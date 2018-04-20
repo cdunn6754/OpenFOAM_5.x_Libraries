@@ -425,26 +425,26 @@ void Foam::TwoEquationSoot::calcSpecieSources
     // density in this cell (assumed constant over these steps)
     const scalar cellRho = this->cellState_.thermoProperties()["rho"];
 
-    if  // There is mass fraction exceeding one
-        (
-            Y_final[0] > 1.0 ||
-            Y_final[1] > 1.0 ||
-            Y_final[2] > 1.0 ||
-            Y_final[3] > 1.0 ||
-            Y_final[4] > 1.0 ||
-            Y_final[5] > 1.0 ||
-            Y_final[6] > 1.0 ||
-            Y_final[7] > 1.0 ||
-            Y_final[8] > 1.0
-        )
-    {
-        Info << "WARNING: Mass Fraction Greater than one" << endl;
-        Info << "After sources:\n"  << endl;
-        Info << "Cell number: " << cellNumber << "; Cell location: "
-            << mesh_.C()[cellNumber] << endl;
-        Info << "Y_initial: \n " << Y_initial << endl;
-        Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
-    }
+    // if  // There is mass fraction exceeding one
+    //     (
+    //         Y_final[0] > 1.0 ||
+    //         Y_final[1] > 1.0 ||
+    //         Y_final[2] > 1.0 ||
+    //         Y_final[3] > 1.0 ||
+    //         Y_final[4] > 1.0 ||
+    //         Y_final[5] > 1.0 ||
+    //         Y_final[6] > 1.0 ||
+    //         Y_final[7] > 1.0 ||
+    //         Y_final[8] > 1.0
+    //     )
+    // {
+    //     Info << "WARNING: Mass Fraction Greater than one" << endl;
+    //     Info << "After sources:\n"  << endl;
+    //     Info << "Cell number: " << cellNumber << "; Cell location: "
+    //         << mesh_.C()[cellNumber] << endl;
+    //     Info << "Y_initial: \n " << Y_initial << endl;
+    //     Info << "Y_final: \n " << Y_final << "\n\n" <<  endl;
+    // }
 
     if (min(Y_final) < 0.0)
     {
