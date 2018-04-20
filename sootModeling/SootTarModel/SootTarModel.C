@@ -329,7 +329,7 @@ void Foam::SootTarModel::exhaustWorstSpecies
     // Interpolate species mf to zero and apply that to the subdt
     // to find smallTimeStep. Assumes positive current value [1]
     // and negative final value [2]
-    scalar fraction = speciesY_[name][1] / 
+    const scalar fraction = speciesY_[name][1] / 
         (speciesY_[name][1] - speciesY_[name][2]);
 
     smallTimeStep = subdt * fraction;    
@@ -344,19 +344,20 @@ void Foam::SootTarModel::exhaustWorstSpecies
         // Apply interpolation to the species
         mf[2] = mf[1] + fraction * (mf[2] - mf[1]);
     }
-    
-    
+     
     if 
     (
         (Foam::cmptMag(speciesY_[name][2]) >= Foam::SMALL)
-        or
-        (speciesY_[name][2] < 0.0)
     )
     {
         FatalErrorInFunction << "Expected " 
-            <<  name << " mass fraction of 0 but found it to be " 
+            <<  name << " mass fraction of very near 0.0 but found it to be " 
             << speciesY_[name][2] << "." << abort(FatalError);
     }
+
+    // As long as the interpolation got it near zero, just set it to 
+    // zero here
+    speciesY_[name][2] = 0.0;
 }
 
 word Foam::SootTarModel::findWorstSpecies()
