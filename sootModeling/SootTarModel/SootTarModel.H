@@ -181,9 +181,6 @@ public:
 
     // **************** Access Functions ************************//
     
-    // Return the source for the N_s equation
-    tmp<volScalarField> sourceN();
-    
     // This will be called in all species equations
     // it returns the appropriate sources depending
     // on the specie mass fraction argument.
