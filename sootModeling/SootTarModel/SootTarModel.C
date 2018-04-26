@@ -562,40 +562,6 @@ Foam::tmp<Foam::volScalarField> Foam::SootTarModel::Qdot()
         return tQdot;
 }
 
-Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceN()
-{
-    //tmp<fvScalarMatrix> tfvm(new fvScalarMatrix(N_soot, N_source_dims));
-
-    tmp<volScalarField> tSourceN
-        (
-            new volScalarField
-            (
-                IOobject
-                (
-                    "sourceN",
-                    this->mesh_.time().timeName(),
-                    this->mesh_,
-                    IOobject::NO_READ,
-                    IOobject::NO_WRITE,
-                    false
-                ),
-                this->mesh_,
-                dimensionedScalar("zero", dimless/dimVolume/dimTime, 0.0)
-            )
-        );
-
-    // // get reference to the fvmatrix inside the tmp
-    // volScalarField& Nsource = tSourceN.ref();
-
-    // Nsource.primitiveFieldRef() = this->N_source;
-
-    // // reset field to zero in preparation for next time step.
-    // this->N_source = 0.0;
-
-    return tSourceN;
-}
-
-
 Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceY
 (
     const volScalarField& Y_field
@@ -628,14 +594,11 @@ Foam::tmp<Foam::volScalarField> Foam::SootTarModel::sourceY
     {
         sourceY.primitiveFieldRef() = this->speciesSources_[specieName];
         
-        
-        // reset field to zero in preparation for next time step.
-        this->speciesSources_[specieName] = 0.0;
         return tSourceY;
     }
     else
     {
-        // return empty source because this specie is unrelated to the soot model
+        // return empty source because this specie is unrelated to this model
         return tSourceY;
     }
 }
