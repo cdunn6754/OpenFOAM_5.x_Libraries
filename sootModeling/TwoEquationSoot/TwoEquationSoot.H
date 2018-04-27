@@ -91,6 +91,7 @@ class TwoEquationSoot
     scalarField Qdot_;
 
     // DEBUG
+    Switch storeReactionRates_;
     volScalarField& rGro_;
     volScalarField& rOxO2_;
     volScalarField& rOxOH_;
@@ -98,6 +99,7 @@ class TwoEquationSoot
     volScalarField& rGasCO2_;
     volScalarField& rAgg_;
     volScalarField& rKronOH_;
+    HashTable<scalar> reactionRateTable_;
 
     // ...........................................................//
     // // Member functions
@@ -169,7 +171,6 @@ class TwoEquationSoot
         const List<word> frozenSpecieNames,
         const label cellNumber
     );
-
 public: 
 
     // Constructor

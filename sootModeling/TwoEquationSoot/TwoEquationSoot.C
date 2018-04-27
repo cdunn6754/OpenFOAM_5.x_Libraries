@@ -57,13 +57,15 @@ MW_(9),
 N_source(Ns.size(),0.0),
 speciesSources(9),
 Qdot_(Ns.size(),0.0),
+storeReactionRates_(true),
 rGro_(rGro),
 rOxO2_(rOxO2),
 rOxOH_(rOxOH),
 rGasH2O_(rGasH2O),
 rGasCO2_(rGasCO2),
 rAgg_(rAgg),
-rKronOH_(rKronOH)
+rKronOH_(rKronOH),
+reactionRateTable_(20)
 
 {
     Info<< "Creating Soot Model Solver \n\n" << endl;
@@ -89,6 +91,15 @@ rKronOH_(rKronOH)
     MW_.insert("H", composition.W(composition.species()["H"]));
     MW_.insert("CO2", composition.W(composition.species()["CO2"]));
     MW_.insert("H2O", composition.W(composition.species()["H2O"]));
+
+    // ReactionRateTable setup
+    reactionRateTable_.insert("Gro", 0.0);
+    reactionRateTable_.insert("OxO2", 0.0);
+    reactionRateTable_.insert("OxOH", 0.0);
+    reactionRateTable_.insert("GasH2O", 0.0);
+    reactionRateTable_.insert("GasCO2", 0.0);
+    reactionRateTable_.insert("Agg", 0.0);
+    reactionRateTable_.insert("KronOH", 0.0);
 }
 
 // Member functions
@@ -171,14 +182,23 @@ void Foam::TwoEquationSoot::ratesOfChange
     scalar cell_oh = this->cellState_.frozenSpecieMassFractions()["OH"];
     const scalar C_oh(cell_rho * cell_oh * (1/this->MW_["OH"]));
     scalar r_Kron_OH = 0.36 * Foam::sqrt(cell_T) * cell_As * C_oh; // [kmol/(m^3*s)]
+
+
+    reactionRateTable_["Gro"] = r_growth;
+    reactionRateTable_["OxO2"] = r_oxidation_O2;
+    reactionRateTable_["OxOH"] = r_oxidation_OH;
+    reactionRateTable_["GasH2O"] = r_gasification_H2O;
+    reactionRateTable_["GasCO2"] = r_gasification_CO2;
+    reactionRateTable_["Agg"] = r_agglomeration;
+    reactionRateTable_["KronOH"] = r_Kron_OH;
     
-    rGro_[cellState_.cellNumber()] = r_growth;
-    rOxO2_[cellState_.cellNumber()] = r_oxidation_O2;
-    rOxOH_[cellState_.cellNumber()] = r_oxidation_OH;
-    rGasH2O_[cellState_.cellNumber()] = r_gasification_H2O;
-    rGasCO2_[cellState_.cellNumber()] = r_gasification_CO2;
-    rAgg_[cellState_.cellNumber()] = r_agglomeration;
-    rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
+    // rGro_[cellState_.cellNumber()] = r_growth;
+    // rOxO2_[cellState_.cellNumber()] = r_oxidation_O2;
+    // rOxOH_[cellState_.cellNumber()] = r_oxidation_OH;
+    // rGasH2O_[cellState_.cellNumber()] = r_gasification_H2O;
+    // rGasCO2_[cellState_.cellNumber()] = r_gasification_CO2;
+    // rAgg_[cellState_.cellNumber()] = r_agglomeration;
+    // rKronOH_[cellState_.cellNumber()] = r_Kron_OH;
     
 } //end ratesOfChange
 
@@ -197,7 +217,7 @@ void Foam::TwoEquationSoot::explicitStep
     scalar r_growth(0.0); // growth of soot particle from c2h2 not nucleation
     scalar r_oxidation_O2(0.0);
     scalar r_oxidation_OH(0.0);
-    scalar r_gasification_H2O(0.0);    
+    scalar r_gasification_H2O(0.0);
     scalar r_gasification_CO2(0.0);
     // rate for soot particle number density reaction[1/(m^3 * s)] (not used here)
     scalar r_agglomeration(0.0);
@@ -350,7 +370,6 @@ void Foam::TwoEquationSoot::calcSpecieSources
     // Create another field for storage of Mass Fractions/Ns
     // at the end of the sub time step
     scalarField Y_final(Y_current.size(), 0.0);
-
        
     // set default initial sub time step for this cell
     scalar subdt = dt/nSubSteps;
@@ -399,6 +418,19 @@ void Foam::TwoEquationSoot::calcSpecieSources
             integratedTime += smallTimeStep;
             // Set subdt for the next time step
             subdt = subdt - smallTimeStep;
+
+            // Increment the output reaction rates
+            // scaled by the sub time step
+            if (storeReactionRates_)
+            {
+                rGro_[cellNumber] += smallTimeStep * reactionRateTable_["Gro"];
+                rOxO2_[cellNumber] += smallTimeStep * reactionRateTable_["OxO2"];
+                rOxOH_[cellNumber] += smallTimeStep * reactionRateTable_["OxOH"];
+                rGasH2O_[cellNumber] += smallTimeStep * reactionRateTable_["GasH2O"];
+                rGasCO2_[cellNumber] += smallTimeStep * reactionRateTable_["GasCO2"];
+                rAgg_[cellNumber] += smallTimeStep * reactionRateTable_["Agg"];
+                rKronOH_[cellNumber] += smallTimeStep * reactionRateTable_["KronOH"];
+            }
         }
         else
         {
@@ -407,6 +439,19 @@ void Foam::TwoEquationSoot::calcSpecieSources
             // and then make sure subdt is set back to the default.
             integratedTime += subdt;
             subdt = dt/nSubSteps;
+
+            // Increment the output reaction rates scaled by the subdt
+            if (storeReactionRates_)
+            {
+                rGro_[cellNumber] += subdt * reactionRateTable_["Gro"];
+                rOxO2_[cellNumber] += subdt * reactionRateTable_["OxO2"];
+                rOxOH_[cellNumber] += subdt * reactionRateTable_["OxOH"];
+                rGasH2O_[cellNumber] += subdt * reactionRateTable_["GasH2O"];
+                rGasCO2_[cellNumber] += subdt * reactionRateTable_["GasCO2"];
+                rAgg_[cellNumber] += subdt * reactionRateTable_["Agg"];
+                rKronOH_[cellNumber] += subdt * reactionRateTable_["KronOH"];
+                
+            }
         }
 
         // Update both the soot variables and the frozen species for
@@ -472,8 +517,19 @@ void Foam::TwoEquationSoot::calcSpecieSources
     this->speciesSources["CO2"][cellNumber] = 
         (Y_final[6] - Y_initial[6])*cellRho/dt;
 
-}// End calcSpecieSources
+    // Divide by total time to form rates to return
+    if (storeReactionRates_)
+    {
+        rGro_[cellNumber] /= dt;
+        rOxO2_[cellNumber] /= dt;
+        rOxOH_[cellNumber] /= dt;
+        rGasH2O_[cellNumber] /= dt;
+        rGasCO2_[cellNumber] /= dt;
+        rAgg_[cellNumber] /= dt;
+        rKronOH_[cellNumber] /= dt;
+    }
 
+}// End calcSpecieSources
 
 //****************** Public member functions ********************//
 
@@ -586,6 +642,19 @@ void Foam::TwoEquationSoot::updateSources
     // Update the fields stored in cellState to new time
     // Currently stores mixture MW field and gas density field.
     this->cellState_.updateCellStateFields(); 
+
+    // If we are storing reaction rates then they need to be reset from
+    // last time
+    if (storeReactionRates_)
+    {
+        rGro_.primitiveFieldRef() = 0.0;
+        rOxO2_.primitiveFieldRef() = 0.0;
+        rOxOH_.primitiveFieldRef() = 0.0;
+        rGasH2O_.primitiveFieldRef() = 0.0;
+        rGasCO2_.primitiveFieldRef() = 0.0;
+        rAgg_.primitiveFieldRef() = 0.0;
+        rKronOH_.primitiveFieldRef() = 0.0;
+    }
     
     // Index the species list with the names of the species
     List<word> frozenSpecieNames(8,"none");
