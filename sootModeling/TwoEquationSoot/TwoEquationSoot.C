@@ -232,7 +232,7 @@ void Foam::TwoEquationSoot::explicitStep
     Y_final[3] = Y_initial[3] + 
         this->MW_["H2"]*(r_growth + r_gasification_H2O)*subdt/cell_rho;
     Y_final[4] = Y_initial[4] + 
-        this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_H2O)
+        this->MW_["CO"]*(r_oxidation_OH + r_gasification_H2O + 2*r_gasification_CO2)
         *subdt/cell_rho;
     Y_final[5] = Y_initial[5] + this->MW_["H"]*(r_oxidation_OH)*subdt/cell_rho;
     Y_final[6] = Y_initial[6] + 
