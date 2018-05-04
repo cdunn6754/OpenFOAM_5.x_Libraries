@@ -150,14 +150,16 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 
 	// Find the initial mass of this specie within the particle
         const scalar massVolatile0 = mass0*YVolatile0_[i];
-	// get the current mass of this specie volatiles in the particle
+	// get the current mass of this species volatiles in the particle
         const scalar massVolatile = mass*YGasEff[id];
 
 	// For the PC coal lab devol rate laws we need daf based
 	// YdafVolatile0, in constrast to the YVolatile0 we already have.
 	const scalar YdafVolatile0 = (YVolatile0_[i]/Ydaf0_);
         
+        
 	const scalar massDevoled = massVolatile0 - massVolatile;
+
 	// YdafDevoled is the mass fraction of current specie mass lost
 	// compared to the initial daf mass (dafMass0)
 	// YdafDevoled starts at 0.0 and approaches YdafVolatile0
@@ -179,12 +181,33 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
         // Kinetic rate for primary devolatilization
         const scalar kappa = Ap*exp(-Ep/(pcR*T));
 
+        // Instead of the explicit integration used previously, use
+        // the analytical solution. 
+        // Y(t) = kappa * (Y_0 - Y(t)) => Y(t) = Y_0 + c1 * exp(-kappa*t)
+        // Since kappa is frozen for every time step but changes in bewtween
+        // timesteps we will use this analytical solution to integrate the 
+        // mass loss for each time step seperately.
+        
+        // Find c1 such that Y(0) = YdafDevoled (i.e. the value of Y at the
+        // beginning of this time step). This should be negative
+        const scalar c1 = YdafDevoled - YdafVolatile0;
+
+        // Now calculate the value of YdafDevoled  after the time step
+        const scalar newYdafDevoled = YdafVolatile0 + c1 * Foam::exp(-kappa * dt);
+        
+        // How much daf mass fraction has been lost
+        const scalar YdafTransfered = newYdafDevoled - YdafDevoled;
+
+        /*
+        // DEPRECATED 05-04-18
         // daf Mass fraction transferred from particle to carrier gas phase
 	// over this dt
-	const scalar YdafTransfered = dt * kappa * (YdafVolatile0 - YdafDevoled);
+	//const scalar YdafTransfered = dt * kappa * (YdafVolatile0 - YdafDevoled);
+        */
 
 	// Give the primary devolatilization products to gas phase
 	// (including tar, we will remove in outer function)
+        // Convert YdafTransfered back into actual mass.
 	dMassDV[id] = min(YdafTransfered*dafMass0, massVolatile);
 
         // // Secondary Pyrolysis
@@ -211,9 +234,35 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
 	    // get the daf mass fraction of tar within the particle initially
 	    const scalar Yinf = volatileData_[i].Yinfs(); 
 
-	    const scalar kappa = As * exp(-Es/(pcR*T));
-	    scalar dyIncrement = dt * kappa * (Yinf - dY);
+            // Just as above use the analytical solution to 'integrate' over this
+            // particle time step dt.
 
+	    const scalar kappa = As * exp(-Es/(pcR*T));
+            const scalar c2 = dY - Yinf;
+            const scalar dY2 = Yinf + c2 * Foam::exp(-kappa * dt);
+
+
+            scalar dyIncrement = dY2 - dY;
+
+            // Do not let the amount of tar decomposed
+            // become greater than amount of primary tar
+            // that is available for decomposition
+            if (dY2 > Yp)
+            {
+                // it's done
+                dyIncrement = Yp - dY;
+                dY = Yp;
+            }
+            else
+            {
+                // increment the dY value of this particle
+                dY = dY2;
+            }            
+            
+
+            /*
+            // DEPRECATED 05-04-18
+	    scalar dyIncrement = dt * kappa * (Yinf - dY);
 
             // Do not let the amount of tar decomposed
             // become greater than amount of primary tar
@@ -227,9 +276,10 @@ void Foam::SingleKineticRatePcDevolatilisation<CloudType>::calculate
             {
                 // increment the dY value of this particle
                 dY += dyIncrement;
-            }            
+            }
+            */
 	    
-	    // mass of this mass fraction increment
+	    // mass of this  daf mass fraction increment
 	    const scalar massIncrement = dyIncrement * dafMass0;
 
 	    // Separate the tar breakdown mass into its contituents
