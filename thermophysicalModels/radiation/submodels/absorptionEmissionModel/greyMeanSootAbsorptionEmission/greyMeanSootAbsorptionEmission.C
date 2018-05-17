@@ -165,8 +165,10 @@ Foam::radiation::greyMeanSootAbsorptionEmission::
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 Foam::tmp<Foam::volScalarField>
-Foam::radiation::greyMeanSootAbsorptionEmission::
-calc(const label propertyId) const
+Foam::radiation::greyMeanSootAbsorptionEmission::calc
+(
+    const label propertyId
+) const
 {
     tmp<volScalarField> ta
     (
