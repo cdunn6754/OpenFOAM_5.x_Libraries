@@ -23,13 +23,13 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "PcSforDevolatilization.H"
+#include "AnalyticalSFORDevolatilization.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class CloudType>
-Foam::PcSforDevolatilization<CloudType>::
-PcSforDevolatilization
+Foam::AnalyticalSFORDevolatilization<CloudType>::
+AnalyticalSFORDevolatilization
 (
     const dictionary& dict,
     CloudType& owner
@@ -39,7 +39,8 @@ PcSforDevolatilization
     volatileData_(this->coeffDict().lookup("volatileData")),
     YVolatile0_(volatileData_.size()),
     volatileToGasMap_(volatileData_.size()),
-    residualCoeff_(readScalar(this->coeffDict().lookup("residualCoeff")))
+    residualCoeff_(readScalar(this->coeffDict().lookup("residualCoeff"))),
+    actUnits_(word(this->coeffDict().lookup("ActivationEnergyUnits")))
 {
     if (volatileData_.empty())
     {
@@ -65,15 +66,30 @@ PcSforDevolatilization
             Info<< "    " << specieName << ": particle mass fraction = "
                 << YVolatile0_[i] << endl;
         }
+        
+        // Check the activation energy units
+        if (actUnits_ == "PCCL" or actUnits_ == "OF")
+        {
+            Info << "Using " << actUnits_ << " units for devolatilization rates." 
+                << endl;
+        }
+        else
+        {
+            FatalErrorInFunction 
+                << "Please select either 'PCCL' -> [kcal/mol] or 'OF' -> [J/kmol] for "
+                    << "the ActivationEnergyUnits input." 
+                    << "\nYou selected: " << actUnits_ << abort(FatalError);
+        }
+        
     }
 }
 
 
 template<class CloudType>
-Foam::PcSforDevolatilization<CloudType>::
-PcSforDevolatilization
+Foam::AnalyticalSFORDevolatilization<CloudType>::
+AnalyticalSFORDevolatilization
 (
-    const PcSforDevolatilization<CloudType>& dm
+    const AnalyticalSFORDevolatilization<CloudType>& dm
 )
 :
     DevolatilisationModel<CloudType>(dm),
@@ -87,15 +103,15 @@ PcSforDevolatilization
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 template<class CloudType>
-Foam::PcSforDevolatilization<CloudType>::
-~PcSforDevolatilization()
+Foam::AnalyticalSFORDevolatilization<CloudType>::
+~AnalyticalSFORDevolatilization()
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class CloudType>
-void Foam::PcSforDevolatilization<CloudType>::calculate
+void Foam::AnalyticalSFORDevolatilization<CloudType>::calculate
 (
     const scalar dt,
     const scalar age,
@@ -110,6 +126,24 @@ void Foam::PcSforDevolatilization<CloudType>::calculate
 ) const
 {
     bool done = true;
+
+    // Universal gas constant
+    scalar R(0.0);
+
+    // Set the gas constant depending on units selected by user
+    if (actUnits_ == "OF")
+    {
+        // in-built RR in [J/kmol]
+        R = RR;
+    }
+    else if (actUnits_ == "PCCL")
+    {
+        // convert from [J/(kmol K)] to [kcal/(mol K)]
+        // factors 4184 J = 1 kcal, 1000 mol = 1 kmol
+        R = RR/(1000 * 4184);
+    }
+
+    // Loop through species
     forAll(volatileData_, i)
     {
         const label id = volatileToGasMap_[i];
@@ -124,10 +158,17 @@ void Foam::PcSforDevolatilization<CloudType>::calculate
         const scalar E = volatileData_[i].E();
 
         // Kinetic rate
-        const scalar kappa = A1*exp(-E/(RR*T));
+        const scalar kappa = A1*exp(-E/(R*T));
+
+        // Analytical integration
+        // dm/dt = kappa * m => m(t) = c * exp(kappa * t)
+        // To find c we know that m(0) = massVolatile, for this time step
+        const scalar c = massVolatile;
+        
+        const scalar dm = c * Foam::exp(kappa * dt) - massVolatile;
 
         // Mass transferred from particle to carrier gas phase
-        dMassDV[id] = min(dt*kappa*massVolatile, massVolatile);
+        dMassDV[id] = min(dm, massVolatile);
     }
 
     if (done && canCombust != -1)

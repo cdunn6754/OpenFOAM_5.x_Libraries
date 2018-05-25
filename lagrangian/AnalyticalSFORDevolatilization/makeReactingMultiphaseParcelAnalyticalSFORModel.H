@@ -23,20 +23,20 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef makeReactingMultiphaseParcelDevolatilisationModels_H
-#define makeReactingMultiphaseParcelDevolatilisationModels_H
+#ifndef makeReactingMultiphaseParcelAnalyticalSFORModels_H
+#define makeReactingMultiphaseParcelAnalyticalSFORModels_H
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#include "PcSforDevolatilization.H"
+#include "AnalyticalSFORDevolatilization.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-#define makeReactingMultiphaseParcelPcSforModels(CloudType)                    \
+#define makeReactingMultiphaseParcelAnalyticalSFORModels(CloudType)            \
                                                                                \
     makeDevolatilisationModelType                                              \
     (                                                                          \
-        PcSforDevolatilization,                                                \
+        AnalyticalSFORDevolatilization,                                        \
         CloudType                                                              \
     );
 

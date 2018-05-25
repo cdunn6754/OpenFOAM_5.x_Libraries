@@ -22,7 +22,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::PcSforDevolatilization
+    Foam::AnalyticalSFORDevolatilization
 
 Description
     Single kinetic rate devolatisation model.
@@ -40,7 +40,7 @@ Description
 
     Usage:
 
-        PcSforDevolatilizationCoeffs
+        AnalyticalSFORDevolatilizationCoeffs
         {
             volatileData
             (
@@ -53,8 +53,8 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef PcSforDevolatilization_H
-#define PcSforDevolatilization_H
+#ifndef AnalyticalSFORDevolatilization_H
+#define AnalyticalSFORDevolatilization_H
 
 #include "DevolatilisationModel.H"
 
@@ -63,11 +63,11 @@ Description
 namespace Foam
 {
 /*---------------------------------------------------------------------------*\
-              Class PcSforDevolatilization Declaration
+              Class AnalyticalSFORDevolatilization Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class CloudType>
-class PcSforDevolatilization
+class AnalyticalSFORDevolatilization
 :
     public DevolatilisationModel<CloudType>
 {
@@ -187,26 +187,29 @@ class PcSforDevolatilization
             //  threshold, combustion can occur
             const scalar residualCoeff_;
 
+    //- Units for activation energy. This will hopefully ensure that
+    // users are cognizant of the units used.
+    const word actUnits_;
 
 public:
 
     //- Runtime type information
-    TypeName("pcSforDevolatilization");
+    TypeName("analyticalSFORDevolatilization");
 
 
     // Constructors
 
         //- Construct from dictionary
-        PcSforDevolatilization
+        AnalyticalSFORDevolatilization
         (
             const dictionary& dict,
             CloudType& owner
         );
 
         //- Construct copy
-        PcSforDevolatilization
+        AnalyticalSFORDevolatilization
         (
-            const PcSforDevolatilization<CloudType>& dm
+            const AnalyticalSFORDevolatilization<CloudType>& dm
         );
 
         //- Construct and return a clone
@@ -214,13 +217,13 @@ public:
         {
             return autoPtr<DevolatilisationModel<CloudType>>
             (
-                new PcSforDevolatilization<CloudType>(*this)
+                new AnalyticalSFORDevolatilization<CloudType>(*this)
             );
         }
 
 
     //- Destructor
-    virtual ~PcSforDevolatilization();
+    virtual ~AnalyticalSFORDevolatilization();
 
 
     // Member Functions
@@ -249,7 +252,7 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifdef NoRepository
-    #include "PcSforDevolatilization.C"
+    #include "AnalyticalSFORDevolatilization.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
