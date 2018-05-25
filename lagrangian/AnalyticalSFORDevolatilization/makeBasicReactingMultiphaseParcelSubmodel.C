@@ -26,13 +26,13 @@ License
 #include "basicReactingMultiphaseCloud.H"
 
 // Reacting multiphase
-#include "makeReactingMultiphaseParcelPcSforModel.H"
+#include "makeReactingMultiphaseParcelAnalyticalSFORModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 
 // Reacting multiphase sub-models
-makeReactingMultiphaseParcelPcSforModels
+makeReactingMultiphaseParcelAnalyticalSFORModels
 (
     basicReactingMultiphaseCloud
 );
