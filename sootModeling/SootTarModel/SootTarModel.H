@@ -86,6 +86,22 @@ class SootTarModel
     // Source for enthalpy equation
     scalarField Qdot_;
 
+    // List of scalar fields to hold rate references
+    scalarField& OxidationRate_;
+    scalarField& CrackingRate_;
+    scalarField& SootFormationRate_;
+
+    // List to temporarily store rates over sub time steps.
+    // Both rate list have the same order
+    // Oxidation, cracking and then soot formation
+    List<scalarField> tempRateList_;
+
+    // Number of sub steps taken. If integration is going well
+    // then these should equal the default, 3, if not then 
+    // they will be higher.
+    scalarField& subStepsTaken_;
+    
+
     // ...........................................................//
     // // Member functions
 
@@ -167,7 +183,11 @@ public:
         const psiReactionThermo& thermo, 
         const basicSpecieMixture& composition,
         const volScalarField& Ns,
-        const fvMesh& mesh
+        const fvMesh& mesh,
+        scalarField& OxidationRate,
+        scalarField& CrackingRate,
+        scalarField& SootFormationRate,
+        scalarField& subStepsTaken
     );
 
 

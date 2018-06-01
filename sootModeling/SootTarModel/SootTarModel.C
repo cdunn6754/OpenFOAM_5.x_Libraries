@@ -36,7 +36,11 @@ Foam::SootTarModel::SootTarModel
     const psiReactionThermo& thermo, 
     const basicSpecieMixture& composition,
     const volScalarField& Ns,
-    const fvMesh& mesh
+    const fvMesh& mesh,
+    scalarField& OxidationRate,
+    scalarField& CrackingRate,
+    scalarField& SootFormationRate,
+    scalarField& subStepsTaken
 )
     :
     thermo_(thermo),
@@ -54,7 +58,12 @@ Foam::SootTarModel::SootTarModel
     MW_(6),
     speciesY_(6),
     speciesSources_(6),
-    Qdot_(Ns.size(),0.0)
+    Qdot_(Ns.size(),0.0),
+OxidationRate_(OxidationRate),
+CrackingRate_(CrackingRate),
+SootFormationRate_(SootFormationRate),
+tempRateList_(3,scalarField(Ns.size(),0.0)),
+subStepsTaken_(subStepsTaken)
 {
     Info<< "Creating Tar Breakdown  Model Solver \n\n" << endl;
 
@@ -119,7 +128,8 @@ Foam::SootTarModel::SootTarModel
                 << relevantSpecies_ << abort(FatalError);
         }
     }
-}
+
+} // end main constructor
 
 // Member functions
 void Foam::SootTarModel::ratesOfChange
@@ -175,6 +185,11 @@ void Foam::SootTarModel::explicitStep
     
     // calculate the rates
     ratesOfChange(r_oxidation, r_gasification, r_sootFormation);
+
+    // collect the rates
+    tempRateList_[0][cellNumber] = r_oxidation;
+    tempRateList_[1][cellNumber] = r_gasification;
+    tempRateList_[2][cellNumber] = r_sootFormation;
 
     HashTable<threeList>& s(speciesY_);
 
@@ -382,7 +397,6 @@ void Foam::SootTarModel::calcSpecieSources
     const label cellNumber
 )
 {
-
     // Local storage for mass fractions of species and soot variables
     scalarField Y_current(10,0.0);
     // Create another field for storage of Mass Fractions/Ns
@@ -431,6 +445,15 @@ void Foam::SootTarModel::calcSpecieSources
                 
             integratedTime += smallTimeStep;
             subdt = subdt - smallTimeStep;
+
+            // The rates are scaled by the full sub-time step
+            OxidationRate_[cellNumber] +=
+                smallTimeStep*tempRateList_[0][cellNumber];
+            CrackingRate_[cellNumber] +=
+                smallTimeStep*tempRateList_[1][cellNumber];
+            SootFormationRate_[cellNumber] +=
+                smallTimeStep*tempRateList_[2][cellNumber];
+
         }
         else
         {
@@ -439,13 +462,29 @@ void Foam::SootTarModel::calcSpecieSources
             // and then make sure subdt is set back to the default.
             integratedTime += subdt;
             subdt = dt/nSubSteps;
-        }
 
+            // The rates are scaled by the full sub-time step
+            OxidationRate_[cellNumber] +=
+                subdt*tempRateList_[0][cellNumber];
+            CrackingRate_[cellNumber] +=
+                subdt*tempRateList_[1][cellNumber];
+            SootFormationRate_[cellNumber] +=
+                subdt*tempRateList_[2][cellNumber];
+            // forAll(rateList_, idx)
+            // {
+            //     rateList_[idx].primitiveFieldRef()[cellNumber] 
+            //         += subdt*tempRateList_[idx][cellNumber];
+            // }
+        }
+        
         // set current mass fractions to final
         updateSpeciesMassFractions();
         
         // Update cellState mass fractions
         cellState_.updateCellState(speciesY_);
+
+        //subStepsTaken_.primitiveFieldRef()[cellNumber] += 1.0;
+        subStepsTaken_[cellNumber] += 1.0;
 
     } // end while (integratedTime < dt)
 
@@ -541,6 +580,10 @@ void Foam::SootTarModel::updateSources
     const label nSubSteps
 )
 {  
+
+    // Reset subStepsTaken_
+    subStepsTaken_ = 0.0;
+
     // Update the fields stored in cellState to new time
     // Currently stores mixture MW field and gas density field.
     this->cellState_.updateCellStateFields(); 
