@@ -66,46 +66,6 @@ tempRateList_(3,scalarField(Ns.size(),0.0)),
 subStepsTaken_(subStepsTaken)
 {
     Info<< "Creating Tar Breakdown  Model Solver \n\n" << endl;
-
-    // // Get the dictionary
-    // IOdictionary coalPropertiesDict
-    // (
-    //     IOobject
-    //     (
-    //         "coalCloud1Properties",    // dictionary name
-    //         mesh.time().constant(),     // dict is found in "constant"
-    //         mesh,                   // registry for the dict
-    //         IOobject::MUST_READ,    // must exist, otherwise failure
-    //         IOobject::NO_WRITE      // dict is only read by the solver
-    //     )
-    // );
-
-    // // Get the actual tar breakdown data
-    // dictionary tarBreakdownDict(coalPropertiesDict.subDict("subModels").subDict("tarBreakdown"));
-
-    // ITstream tokenStream(tarBreakdownDict.lookup("species"));
-
-    // label idx =tokenStream.tokenIndex();
-    
-    // Info <<  idx 
-    //     << endl;
-
-    // char temp(tokenStream.readBeginList("List"));
-
-    // idx =tokenStream.tokenIndex();
-    
-    // Info <<  idx 
-    //     << endl;
-
-    // word tempNum(tokenStream);
-
-    // idx =tokenStream.tokenIndex();
-
-    // Info <<  idx
-    //     << endl;
-
-    // FatalErrorInFunction << "END" << abort(FatalError);
-    //relevantSpecies_ = temp;
     
     // list of relevant species names
     const wordList relevantSpecies_({"TAR", "SOOT", "CO", "CO2", "O2", "H2"});
@@ -127,6 +87,15 @@ subStepsTaken_(subStepsTaken)
                 << " listed twice in tarBreakdown species dictionary." 
                 << relevantSpecies_ << abort(FatalError);
         }
+    }
+
+    // Check that Tar is represented by Pyrene
+    if (MW_["TAR"] < 200 or MW_["TAR"] > 205)
+    {
+        FatalErrorInFunction << "The TAR surrogate must be Pyrene (C16H10)." 
+            << " The selected TAR surrogate has a molecular weight outside"
+            << " of the appropriate range of 200-205 [kmol/kg]." 
+            << abort(FatalError);
     }
 
 } // end main constructor
