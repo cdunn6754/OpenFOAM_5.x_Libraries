@@ -40,7 +40,8 @@ AnalyticalSFORDevolatilization
     YVolatile0_(volatileData_.size()),
     volatileToGasMap_(volatileData_.size()),
     residualCoeff_(readScalar(this->coeffDict().lookup("residualCoeff"))),
-    actUnits_(word(this->coeffDict().lookup("ActivationEnergyUnits")))
+    actUnits_(word(this->coeffDict().lookup("ActivationEnergyUnits"))),
+    R_(-1.0)
 {
     if (volatileData_.empty())
     {
@@ -73,21 +74,27 @@ AnalyticalSFORDevolatilization
             Info << "Using " << actUnits_ << " -> [kcal/(mol K)],"
                 << " units for devolatilization rates." 
                 << endl;
+            // convert from [J/(kmol K)] to [kcal/(mol K)]
+            // factors 4184 J = 1 kcal, 1000 mol = 1 kmol
+            R_ = RR/(1000 * 4184);
+
         }
         else if (actUnits_ == "OF")
         {
             Info << "Using " << actUnits_ << " -> [J/(kmol K)],"
                 << " units for devolatilization rates." 
                 << endl;
+
+            // set local R_ to built_in RR in [J/kmol]
+            R_ = RR;
         }
-        else
+        else // If it was neither option throw and error
         {
             FatalErrorInFunction 
                 << "Please select either 'PCCL' -> [kcal/mol] or 'OF' -> [J/kmol] for "
                     << "the ActivationEnergyUnits input." 
                     << "\nYou selected: " << actUnits_ << abort(FatalError);
         }
-        
     }
 }
 
@@ -103,7 +110,9 @@ AnalyticalSFORDevolatilization
     volatileData_(dm.volatileData_),
     YVolatile0_(dm.YVolatile0_),
     volatileToGasMap_(dm.volatileToGasMap_),
-    residualCoeff_(dm.residualCoeff_)
+    residualCoeff_(dm.residualCoeff_),
+    actUnits_(dm.actUnits_),
+    R_(dm.R_)
 {}
 
 
@@ -134,22 +143,6 @@ void Foam::AnalyticalSFORDevolatilization<CloudType>::calculate
 {
     bool done = true;
 
-    // Universal gas constant
-    scalar R(0.0);
-
-    // Set the gas constant depending on units selected by user
-    if (actUnits_ == "OF")
-    {
-        // in-built RR in [J/kmol]
-        R = RR;
-    }
-    else if (actUnits_ == "PCCL")
-    {
-        // convert from [J/(kmol K)] to [kcal/(mol K)]
-        // factors 4184 J = 1 kcal, 1000 mol = 1 kmol
-        R = RR/(1000 * 4184);
-    }
-
     // Loop through species
     forAll(volatileData_, i)
     {
@@ -165,7 +158,7 @@ void Foam::AnalyticalSFORDevolatilization<CloudType>::calculate
         const scalar E = volatileData_[i].E();
 
         // Kinetic rate
-        const scalar kappa = A1*exp(-E/(R*T));
+        const scalar kappa = A1*exp(-E/(R_*T));
 
         // Analytical integration
         // dm/dt = kappa * m => m(t) = c * exp(kappa * t)

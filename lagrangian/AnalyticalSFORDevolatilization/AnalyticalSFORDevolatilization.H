@@ -191,6 +191,10 @@ class AnalyticalSFORDevolatilization
     // users are cognizant of the units used.
     const word actUnits_;
 
+    //- The universal gas constant in the appropriate units depending on 
+    //  the selection of actUnits_
+    scalar R_;
+
 public:
 
     //- Runtime type information
