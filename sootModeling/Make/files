@@ -1,5 +1,6 @@
 CellState/CellState.C
 TwoEquationSoot/TwoEquationSoot.C
+NoGrowthTwoEquationSoot/NoGrowthTwoEquationSoot.C
 SootTarModel/SootTarModel.C
 
 LIB = $(FOAM_USER_LIBBIN)/libsootModeling
