@@ -100,7 +100,17 @@ subStepsTaken_(subStepsTaken)
 
 } // end main constructor
 
-// Member functions
+
+// //  Member functions
+
+
+void Foam::SootTarModel::zeroRateRefs()
+{
+    OxidationRate_ = 0.0; 
+    CrackingRate_ = 0.0; 
+    SootFormationRate_ = 0.0; 
+}
+
 void Foam::SootTarModel::ratesOfChange
 (
     scalar& r_oxidation,
@@ -368,6 +378,7 @@ void Foam::SootTarModel::calcSpecieSources
 {
     // Local storage for mass fractions of species and soot variables
     scalarField Y_current(10,0.0);
+
     // Create another field for storage of Mass Fractions/Ns
     // at the end of the sub time step
     scalarField Y_final(Y_current.size(), 0.0);
@@ -553,6 +564,10 @@ void Foam::SootTarModel::updateSources
     // Reset subStepsTaken_
     subStepsTaken_ = 0.0;
 
+    // Reset the stored rate fields to zero
+    // They have already been recorded for the previous time step
+    this->zeroRateRefs();
+
     // Update the fields stored in cellState to new time
     // Currently stores mixture MW field and gas density field.
     this->cellState_.updateCellStateFields(); 
@@ -573,7 +588,7 @@ void Foam::SootTarModel::updateSources
              cellNumber);
         }
     }
-    // if single time step (i.e. transient simulation)
+    // if single, global time step (i.e. transient simulation)
     else if (! fv::localEulerDdt::enabled(this->mesh_))
     {
         Info << "Operating tar model in transient mode" << endl;

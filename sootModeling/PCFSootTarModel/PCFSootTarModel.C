@@ -101,6 +101,14 @@ subStepsTaken_(subStepsTaken)
 } // end main constructor
 
 // Member functions
+
+void Foam::PCFSootTarModel::zeroRateRefs()
+{
+    OxidationRate_ = 0.0; 
+    CrackingRate_ = 0.0; 
+    SootFormationRate_ = 0.0; 
+}
+
 void Foam::PCFSootTarModel::ratesOfChange
 (
     scalar& r_oxidation,
@@ -558,6 +566,10 @@ void Foam::PCFSootTarModel::updateSources
 
     // Reset subStepsTaken_
     subStepsTaken_ = 0.0;
+
+    // Reset the stored rate fields to zero
+    // They have already been recorded for the previous time step
+    this->zeroRateRefs();
 
     // Update the fields stored in cellState to new time
     // Currently stores mixture MW field and gas density field.

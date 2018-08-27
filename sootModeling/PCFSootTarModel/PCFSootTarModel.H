@@ -105,6 +105,10 @@ class PCFSootTarModel
     // ...........................................................//
     // // Member functions
 
+    // At each gas phase time step the rate references need to 
+    // be zeroed.
+    void zeroRateRefs();
+
     // Given the current thermophysical/chemical state
     // in a cell determine the reaction rates of the 
     // reactions in the soot mass fraction equation

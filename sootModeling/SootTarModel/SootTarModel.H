@@ -92,7 +92,7 @@ class SootTarModel
     scalarField& SootFormationRate_;
 
     // List to temporarily store rates over sub time steps.
-    // Both rate list have the same order
+    // Both rate lists have the same order
     // Oxidation, cracking and then soot formation
     List<scalarField> tempRateList_;
 
@@ -104,6 +104,11 @@ class SootTarModel
 
     // ...........................................................//
     // // Member functions
+
+
+    // At each gas phase time step the rate references need to 
+    // be zeroed.
+    void zeroRateRefs();
 
     // Given the current thermophysical/chemical state
     // in a cell determine the reaction rates of the 
