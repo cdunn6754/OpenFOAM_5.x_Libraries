@@ -35,32 +35,33 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootCellMixture
 ) const
 {
 
-    // Get those mass fractions
+    // Get list of mass fractions
     const PtrList<volScalarField>& Y_ = MixtureType::Y();
 
-    // Hope that SOOT isn't the first specie listed
-    typename MixtureType::thermoType mixture = 
-        Y_[0][celli]*MixtureType::speciesData()[0];
-    
-    // The whole point is to avoid SOOT
-    if (Y_[0].name() != "SOOT")
-    {
-        for (label n=1; n<Y_.size(); n++)
-        {
-            if (Y_[n].name() != "SOOT")
-            {
-                mixture += Y_[n][celli]*MixtureType::speciesData()[n];
-            }
-        }
-    }
-    else 
-    {
-        // If SOOT was the first one then reset and loop through the rest
-        mixture = Y_[1][celli]*MixtureType::speciesData()[1];
+    const scalar Ysoot = MixtureType::Y("SOOT")[celli];
+    const label sootIdx = MixtureType::species()["SOOT"];
 
-        for (label n=1; n<Y_.size(); n++)
+    // find a good index to start from, not at the soot idx
+    label startIdx = 0;
+    if (sootIdx == 0)
+    {
+        startIdx = 1;
+    }
+
+    // Start the mixture averaging with first species, not at soot
+    typename MixtureType::thermoType mixture = 
+        (Y_[startIdx][celli]/(1.0 - Ysoot))*MixtureType::speciesData()[startIdx];
+
+    // Loop through all other species and get the average 
+    // properties, excluding soot and whatever startIdx is
+    for (label n=(startIdx + 1); n<Y_.size(); n++)
+    {
+        if (n != sootIdx && n != startIdx)
         {
-            mixture += Y_[n][celli]*MixtureType::speciesData()[n];
+            // adjusted Y to renomalize mass fractions with soot excluded
+            const scalar adjY = Y_[n][celli]/(1.0 - Ysoot);
+
+            mixture += adjY * MixtureType::speciesData()[n];
         }
     }
     
@@ -79,34 +80,34 @@ Foam::sootHePsiThermo<BasicPsiThermo, MixtureType>::sootPatchFaceMixture
     // Get those mass fractions
     const PtrList<volScalarField>& Y_ = MixtureType::Y();
 
-    // Hope that SOOT isn't the first specie listed
-    typename MixtureType::thermoType mixture = 
-        Y_[0].boundaryField()[patchi][facei]*MixtureType::speciesData()[0];
-    
-    // The whole point is to avoid SOOT
-    if (Y_[0].name() != "SOOT")
-    {
-        for (label n=1; n<Y_.size(); n++)
-        {
-            if (Y_[n].name() != "SOOT")
-            {
-                mixture += Y_[n].boundaryField()[patchi][facei]
-                    *MixtureType::speciesData()[n];
-            }
-        }
-    }
-    else 
-    {
-        // If SOOT was the first one then reset and loop through the rest
-        mixture = Y_[1].boundaryField()[patchi][facei]*MixtureType::speciesData()[1];
+    const scalar Ysoot = MixtureType::Y("SOOT").boundaryField()[patchi][facei];
+    const label sootIdx = MixtureType::species()["SOOT"];
 
-        for (label n=1; n<Y_.size(); n++)
+    // find a good index to start from, not at the soot idx
+    label startIdx = 0;
+    if (sootIdx == 0)
+    {
+        startIdx = 1;
+    }
+
+    // Start the mixture averaging with first species, not at soot
+    typename MixtureType::thermoType mixture = 
+        (Y_[startIdx].boundaryField()[patchi][facei]/(1.0 - Ysoot))
+        * MixtureType::speciesData()[startIdx];
+
+    // Loop through all other species and get the average 
+    // properties, excluding soot and whatever startIdx is
+    for (label n=(startIdx + 1); n<Y_.size(); n++)
+    {
+        if (n != sootIdx && n != startIdx)
         {
-            mixture += Y_[n].boundaryField()[patchi][facei]
-                *MixtureType::speciesData()[n];
+            // adjusted Y to renomalize mass fractions with soot excluded
+            const scalar adjY = Y_[n].boundaryField()[patchi][facei]/(1.0 - Ysoot);
+
+            mixture += adjY * MixtureType::speciesData()[n];
         }
     }
-    
+
     return mixture;
 }
 
