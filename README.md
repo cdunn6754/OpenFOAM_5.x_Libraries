@@ -87,7 +87,7 @@ Collection of classes that relate to the thermo-physical models in OpenFOAM
 	   fractions, i.e. proper multiphase density calculation. 
     
     
-### Enviroment Set-up for Building:
+### Environment Set-up for Building:
 Libraries for use with OpenFOAM 5.x (OF). You need to have a few important OF specific enviroment variables set
 before building this project. Most importantly you will need to ensure the 
 `FOAM_USER_LIBBIN`  variable is set. It should point to something like
